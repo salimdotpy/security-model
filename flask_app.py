@@ -65,9 +65,10 @@ def index():
 
     if not current_user.is_authenticated:
         return redirect(url_for('index'))
-    comment = Comment(content=request.form["contents"])
-    db.session.add(comment)
-    db.session.commit()
+    if request.form["contents"] not in ['', ' ', None, False]:
+        comment = Comment(content=request.form["contents"].strip())
+        db.session.add(comment)
+        db.session.commit()
     return redirect(url_for('index'))
 
 @app.route("/view/", methods=["GET", "POST"])
