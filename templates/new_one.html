@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Salim Material</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="../static/css/materialize.min.css"/>
+    <link rel="stylesheet" href="../static/css/new-style.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" integrity="sha512-XJ3ntWHl40opEiE+6dGhfK9NAKOCELrpjiBRQKtu6uJf9Pli8XY+Hikp7rlFzY4ElLSFtzjx9GGgHql7PLSeog==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+</head>
+<body class="">
+<nav class="navbar-fixed-top">
+    <div class="nav-wrap">
+        <a href="#" class="brand-logo">
+            <i class="fa fa fa-language"></i>
+            PySalim</a>
+        <a href="#" class="brand-logo mini">
+            <i class="fa fa fa-language"></i>
+        </a>
+        <a href="#mobile-demo" data-activates="mobile-demo" class="button-collapse">
+            <i class="fa fa-navicon"></i>
+        </a>
+        <a href="#" data-activates="mobile-demo" id="toggle" class="navbar-toggler">
+            <i class="fa fa-navicon"></i>
+        </a>
+        <div class="navbar-search">
+            <form class="pull-left" action="#" style="margin-left: 40px">
+                <div class="input-field" style="position: relative">
+                    <label style="position: absolute; margin-left: 10px; padding-top: 2px">
+                        <i class="material-icons">search</i>
+                    </label>
+                    <input type="text" placeholder="Search projects" class="form-control grey lighten-4"
+                           style="display: inline-block; width: auto; font-size: 1rem" required>
+                </div>
+            </form>
+        </div>
+        <ul class="right navbar-navs">
+            <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                    <i class="fa fa-home"></i>
+                </a>
+                <ul role="menu" class="dropdown-menu dropdown-menu-right">
+                    <li><a href="#">Inbox</a> </li>
+                    <li><a href="">Inbox</a> </li>
+                    <li><a href="#">Inbox</a> </li>
+                    <li><a href="#">Inbox</a> </li>
+                    <li><a href="#">Inbox</a> </li>
+                </ul>
+            </li>
+            <li><a href="#">
+                <i class="fa fa-envelope"></i>
+            </a></li>
+            <li><a href="/">
+                <i class="fa fa-power-off"></i>
+            </a></li>
+        </ul>
+    </div>
+</nav>
+<main class="white">
+    <ul class="side-nav a-hide-on-large-only" id="mobile-demo">
+        <li class="text-center grey lighten-4 h1 side-nav-media" style="margin: 0">
+            <br>
+               <span class="fa-stack social-icon">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa fa-user-secret fa-stack-1x fa-inverse over-blue-text"></i>
+                </span>
+            <p class="h4 text-bold truncate">Hi! Salimdotpy</p>
+            <br>
+        </li>
+        <li class="">
+            <a href="#">
+                <span class="menu-title">Dashboard</span>
+                <i class="fa fa-dashboard menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a data-toggle="collapse" href="#ui-basic" class="dropdown collapsed">
+                <span class="menu-title">Our Service</span>
+                <i class="fa fa-envelope menu-icon"></i>
+            </a>
+            <div class="collapse" id="ui-basic">
+                <ul class="nav sub-menu">
+                    <li class="nav-item"> <a class="nav-link" href="#">Web design</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="#">App design</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="#">ML integration</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="#">Api Creation</a></li>
+                </ul>
+            </div>
+        </li>
+        <li>
+            <a href="#">
+                <span class="menu-title">Share App</span>
+                <i class="fa fa-share menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a data-toggle="collapse" href="#feed-back" class="dropdown collapsed">
+                <span class="menu-title">Feed Back</span>
+                <i class="fa fa-comment-o menu-icon"></i>
+            </a>
+            <div class="collapse" id="feed-back">
+                <ul class="nav sub-menu">
+                    <li class="nav-item"> <a class="nav-link" href="https://wa.me/+2348076738293?text=hi mr salim, I love you.">Whatsapp</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="mailto:salimdotpy@gmail.com?body=hi mr salim, I love you.">Email</a></li>
+                </ul>
+            </div>
+        </li>
+        <li>
+            <a href="#">
+                <span class="menu-title">Help</span>
+                <i class="fa fa-question menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <span class="menu-title">Logout</span>
+                <i class="fa fa-sign-out menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <span class="menu-title">Exit</span>
+                <i class="fa fa-power-off menu-icon"></i>
+            </a>
+        </li>
+    </ul>
+    <div class="main-panel grey lighten-5">
+        <div class="row">
+            <div class="col-md-6 col-sm-3 col-lg-3 slideInDown animated">
+                <div class="panel panel-success shadow-all-o" style="">
+                    <div class="panel-heading">
+                        <div class="row black-text">
+                            <div class="col-xs-3"><i class="fa fa-fw fa-newspaper-o fa-4x green-text text-lighten-2"></i></div>
+                            <div class="col-xs-9 text-right green-text text-bold">
+                                <span class="h1 text-bold">0</span><br>
+                                <span class="">TODAY'S NEWS</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="">
+                        <div class="panel-footer">
+                            <span class="pull-left">All News</span>
+                            <span class="pull-right"><i class="fa fa-arrow-circle-right"></i></span>
+                            <div class="clearfix"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-3 col-lg-3 slideInDown animated">
+                <div class="panel panel-danger shadow-all-o">
+                    <div class="panel-heading">
+                        <div class="row black-text">
+                            <div class="col-xs-3"><i class="fa fa-fw fa-bell fa-4x red-text text-lighten-2"></i></div>
+                            <div class="col-xs-9 text-right red-text text-bold">
+                                <span class="h1 text-bold">0</span><br>
+                                <span>VIEW NOTICE</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="">
+                        <div class="panel-footer">
+                            <span class="pull-left">All Notice</span>
+                            <span class="pull-right"><i class="fa fa-arrow-circle-right"></i></span>
+                            <div class="clearfix"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-3 col-lg-3 slideInDown animated">
+                <div class="panel panel-info shadow-all-o">
+                    <div class="panel-heading">
+                        <div class="row black-text">
+                            <div class="col-xs-3"><i class="fa fa-fw fa-graduation-cap fa-4x blue-text text-lighten-2"></i></div>
+                            <div class="col-xs-9 text-right blue-text text-bold">
+                                <span class="h1 text-bold">0</span><br>
+                                <span class="">TOTAL STUDENTS</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="">
+                        <div class="panel-footer">
+                            <span class="pull-left">All Students</span>
+                            <span class="pull-right"><i class="fa fa-arrow-circle-right"></i></span>
+                            <div class="clearfix"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-3 col-lg-3 slideInDown animated">
+                <div class="panel panel-warning shadow-all-o">
+                    <div class="panel-heading">
+                        <div class="row black-text">
+                            <div class="col-xs-3"><i class="fa fa-fw fa-user fa-4x orange-text text-lighten-2"></i></div>
+                            <div class="col-xs-9 text-right orange-text text-bold">
+                                <span class="h1 text-bold">0</span><br>
+                                <span class="">TOTAL STAFF</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="">
+                        <div class="panel-footer">
+                            <span class="pull-left">All Staff</span>
+                            <span class="pull-right"><i class="fa fa-arrow-circle-right"></i></span>
+                            <div class="clearfix"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="dynamic">
+
+        </div>
+        <footer>
+
+        </footer>
+    </div>
+</main>
+<script>
+    $(document).ready(function () {
+        $(".button-collapse").sideNav();
+        var dynamic = $('.dynamic'), dynamic_cont='';
+        for(var r=0; r<1; r++){
+            dynamic_cont+='<div class="row">';
+            for(var c=0; c<3; c++){
+                dynamic_cont+='' +
+                '<div class="col-md-4"> ' +
+                '<div class="panel panel-info"> ' +
+                '<div class="panel-heading">Info</div> ' +
+                '<div class="panel-body"> ' +
+                '<h3>Welcome!</h3>'+
+                '</div> </div> </div>';
+            }
+            dynamic_cont+='</div>';
+        }
+        dynamic.html(dynamic_cont);
+    });
+    $("#toggle").on("click", function () {
+        $("body").toggleClass("open");
+        $(".collapse").removeClass("in");
+    });
+    var nav = document.getElementById("sidebar");
+    $(window).on("click", function (e) {
+        if(e.target==nav){
+//            $("body").removeClass("open");
+        }
+    });
+    $(document).on('mouseenter mouseleave', '.side-nav li', function(ev) {
+        var body = $('body');
+        var sidebarIconOnly = body.hasClass("open");
+        if (!('ontouchstart' in document.documentElement)) {
+            if (sidebarIconOnly) {
+                var $menuItem = $(this);
+                if (ev.type === 'mouseenter') {
+                    $(".collapse").removeClass("in");
+                    $menuItem.addClass('hover-open');
+                } else {
+                    $menuItem.removeClass('hover-open');
+//                    $(".collapse").removeClass("in");
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
