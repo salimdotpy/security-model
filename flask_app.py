@@ -3,7 +3,7 @@
 
 from flask import Flask, redirect, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import login_user, LoginManager, UserMixin
+from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -19,15 +19,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_POOL_RECYCLE"] = 299
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
+
 app.secret_key = "my first flash application hosted on pythonanywhere"
 login_manager = LoginManager()
 login_manager.init_app(app)
-class Comment(db.Model):
-
-    __tablename__ = "comments"
-
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(4096))
 
 class User(UserMixin):
 
@@ -35,8 +30,10 @@ class User(UserMixin):
         self.username = username
         self.password_hash = password_hash
 
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
 
     def get_id(self):
         return self.username
@@ -47,9 +44,18 @@ all_users = {
     "caroline": User("caroline", generate_password_hash("completely-secret")),
 }
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return all_users.get(user_id)
+
+
+class Comment(db.Model):
+
+    __tablename__ = "comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(4096))
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -83,6 +89,9 @@ def login():
     login_user(user)
     return redirect(url_for('index'))
 
+
 @app.route("/logout/")
+@login_required
 def logout():
+    logout_user()
     return redirect(url_for('index'))

@@ -1,12 +1,13 @@
-<html>
+<!DOCTYPE html>
+<html lang="en-Us">
     <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="utf-8"/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+        <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
         <title>Salimdotpy | Landing Page</title>
     </head>
 
@@ -33,21 +34,24 @@
           </div>
         </nav>
         <div class="container">
+            <div class="row">
+                <div class="col-md-12">
+                    {% for comment in comments %}
+                        <div class="">
+                            {{ comment.content }}
+                        </div>
+                    {% endfor %}
 
-            {% for comment in comments %}
-                <div class="row">
-                    {{ comment.content }}
+                    {% if current_user.is_authenticated %}
+                        <div class="">
+                            <form action="." method="POST">
+                                <textarea name="contents" placeholder="Enter a comment" class="form-control"></textarea>
+                                <input type="submit" class="btn btn-success" value="Post comment">
+                            </form>
+                        </div>
+                    {% endif %}
                 </div>
-            {% endfor %}
-
-            {% if current_user.is_authenticated %}
-                <div class="row">
-                    <form action="." method="POST">
-                        <textarea name="contents" placeholder="Enter a comment" class="form-control"></textarea>
-                        <input type="submit" class="btn btn-success" value="Post comment">
-                    </form>
-                </div>
-            {% endif %}
+            </div>
 
         </div>
 
