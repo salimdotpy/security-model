@@ -7,8 +7,8 @@
 
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-        <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
-        <title>My scratchboard page: log in</title>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+        <title>Salimdotpy: log in</title>
     </head>
 
     <body>
@@ -21,8 +21,11 @@
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
                     </button>
-                    <a class="navbar-brand" href="/">Back to Landing Page</a>
+                    <a class="navbar-brand" href="{{ url_for('login') }}">Salimdotpy</a>
                 </div>
+                <ul class="nav navbar-nav navbar-right collapse" id="navbar">
+                    <li><a href="{{ url_for('index') }}">Back to Landing Page</a></li>
+                </ul>
             </div>
         </nav>
 
