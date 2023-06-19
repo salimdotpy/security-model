@@ -67,7 +67,11 @@
                     <i class="fa fa-circle fa-stack-2x"></i>
                     <i class="fa fa fa-user-secret fa-stack-1x fa-inverse over-blue-text"></i>
                 </span>
-            <p class="h4 text-bold truncate">Hi! Salimdotpy</p>
+            <p class="h4 text-bold truncate">Hi!
+                {% if current_user.is_authenticated %}
+                    {{ current_user.username }}
+                {% endif %}
+            </p>
             <br>
         </li>
         <li class="">
@@ -103,8 +107,8 @@
             </a>
             <div class="collapse" id="feed-back">
                 <ul class="nav sub-menu">
-                    <li class="nav-item"> <a class="nav-link" href="https://wa.me/+2348076738293?text=hi mr salim, I love you.">Whatsapp</a></li>
-                    <li class="nav-item"> <a class="nav-link" href="mailto:salimdotpy@gmail.com?body=hi mr salim, I love you.">Email</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="https://wa.me/+2348076738293?text=hi mr salim">Whatsapp</a></li>
+                    <li class="nav-item"> <a class="nav-link" href="mailto:salimdotpy@gmail.com?body=hi mr salim">Email</a></li>
                 </ul>
             </div>
         </li>

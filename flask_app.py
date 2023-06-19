@@ -83,14 +83,12 @@ def login():
     user = load_user(request.form["username"])
     if user is None:
         return render_template("login_page.html", error=True)
-    user = all_users[username]
 
     if not user.check_password(request.form["password"]):
         return render_template("login_page.html", error=True)
 
     login_user(user)
     return redirect(url_for('index'))
-
 
 @app.route("/logout/")
 @login_required
