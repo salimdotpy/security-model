@@ -92,6 +92,21 @@ def login():
     login_user(user)
     return redirect(url_for('index'))
 
+@app.route("/signup/", methods=["GET", "POST"])
+def signup():
+    if request.method == "GET":
+        return render_template("signup_page.html", error=False)
+
+    user = load_user(request.form["username"])
+    if user is None:
+        return render_template("signup_page.html", error=True)
+
+    if not user.check_password(request.form["password"]):
+        return render_template("signup_page.html", error=True)
+
+    login_user(user)
+    return redirect(url_for('index'))
+
 @app.route("/delete/", methods=["GET", "POST"])
 def deleteComment():
     if request.method == "GET":

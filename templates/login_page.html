@@ -6,54 +6,71 @@
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"/>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" integrity="sha512-XJ3ntWHl40opEiE+6dGhfK9NAKOCELrpjiBRQKtu6uJf9Pli8XY+Hikp7rlFzY4ElLSFtzjx9GGgHql7PLSeog==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
         <title>Salimdotpy: log in</title>
+        <style>
+            a, a:hover, a:focus, a:active{
+                text-decoration: none;
+            }
+            .form-control, p.text-center{
+                margin-bottom: 2rem;
+            }
+        </style>
     </head>
-
     <body>
-        <nav class="navbar navbar-inverse">
-            <div class="container">
-                <div class="navbar-header">
-                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand" href="{{ url_for('login') }}">Salimdotpy</a>
-                </div>
-                <ul class="nav navbar-nav navbar-right collapse" id="navbar">
-                    <li><a href="{{ url_for('index') }}">Back to Landing Page</a></li>
-                </ul>
-            </div>
-        </nav>
-
         <div class="container">
+            <div class="row w3-margin-top w3-padding-top-64">
+                <div class="col-md-4 col-md-push-4">
+                    <div class="panel panel-default w3-round-xlarge w3-card">
+                        <div class="panel-body">
+                            <a href="/"><i class="fa fa-close"></i></a>
+                            <form class="w3-margin-top col-md-12" action="." method="POST">
+                                <h3>Get started now!</h3><br>
+                                {% if error %}
+                                    <div class="alert alert-warning" role="alert">
+                                        <a href="#" class="close" data-dismiss="alert">&times;</a>
+                                        Incorrect username or password
+                                    </div>
+                                {% endif %}
 
-            <div class="row">
-                <div class="col-md-12">
-                    {% if error %}
-                    <div class="alert alert-warning" role="alert">
-                        <a href="#" class="close" data-dismiss="alert">&times;</a>
-                        Incorrect username or password
+                                <div class="form-group">
+                                    <input type="text" class="form-control w3-round-xlarge" name="username" placeholder="Enter Username">
+                                </div>
+                                <div class="form-group" style="position: relative">
+                                    <i class="fa fa-eye-slash" style="position: absolute; right: 15px; top: 10px" id="seePass"></i>
+                                    <input type="password" class="form-control w3-round-xlarge" name="password" placeholder="Enter Password" id="pass">
+                                </div>
+                                <div class="form-group">
+                                    <button class="btn btn-primary btn-block text-bold w3-round-xlarge" type="submit">Login</button>
+                                </div>
+                                <p class="text-center">Not have account?
+                                    <a href="" class="orange-text">Create one!</a></p>
+                                <div class="form-group">
+                                    <button type="reset" class="btn btn-danger w3-round-xlarge">Cancel</button>
+                                    <a href="" class="pull-right">Forgot Password?</a>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    {% endif %}
-                    <form action="." method="POST">
-                      <div class="form-group">
-                        <label for="username">Username:</label>
-                        <input class="form-control" id="username" name="username" placeholder="Enter your username">
-                      </div>
-                      <div class="form-group">
-                        <label for="password">Password:</label>
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password">
-                      </div>
-                      <button type="submit" class="btn btn-success">Log in</button>
-                    </form>
+                    <div class="text-center">&copy; Salimdotpy <span id="copyYear"></span></div>
                 </div>
             </div>
-
         </div>
+        <script>
+            var _seePass = $('#seePass'), _pass = $('#pass');
+            _seePass.on('click', function () {
+                $(this).toggleClass('fa-eye-slash').toggleClass('fa-eye');
+                if($(this).hasClass('fa-eye')) _pass.attr('type', 'text');
+                else _pass.attr('type', 'password');
+            })
+            $(document).ready(function () {
+                var dd = new Date();
+                $('#copyYear').text(dd.getFullYear());
+            })
+        </script>
 
     </body>
 </html>
