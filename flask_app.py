@@ -1,12 +1,13 @@
 
 # A very simple Flask Hello World app for you to get started with...
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin, current_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
+import re
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
@@ -23,7 +24,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-app.secret_key = "my first flash application hosted on pythonanywhere"
+app.secret_key = "my first flask application hosted on pythonanywhere"
 login_manager = LoginManager()
 login_manager.init_app(app)
 
@@ -32,11 +33,14 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(128))
-    password_hash = db.Column(db.String(128))
+    contact = db.Column(db.String(128))
+    email = db.Column(db.String(128))
+    password = db.Column(db.String(128))
+    status = db.Column(db.String(128))
+    date = db.Column(db.DateTime, default=datetime.now)
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
+        return check_password_hash(self.password, password)
 
     def get_id(self):
         return self.username
@@ -55,6 +59,23 @@ class Comment(db.Model):
     posted = db.Column(db.DateTime, default=datetime.now)
     commenter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     commenter = db.relationship('User', foreign_keys=commenter_id)
+
+class Log(db.Model):
+
+    __tablename__ = "logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128))
+    password = db.Column(db.String(128))
+    ipaddress = db.Column(db.String(128))
+    time = db.Column(db.DateTime, default=datetime.now)
+    status = db.Column(db.String(20))
+
+# new and to remove
+@app.route('/api/ip', methods=['GET'])
+def get_client_ip():
+    remote_addr = request.headers['X-Real-IP'], request.headers,
+    return f"<h1>Client IP address: {remote_addr}</h1>"
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -94,25 +115,51 @@ def login():
 
 @app.route("/signup/", methods=["GET", "POST"])
 def signup():
-    if request.method == "GET":
-        return render_template("signup_page.html", error=False)
-
-    user = load_user(request.form["username"])
-    if user is None:
-        return render_template("signup_page.html", error=True)
-
-    if not user.check_password(request.form["password"]):
-        return render_template("signup_page.html", error=True)
-
-    login_user(user)
-    return redirect(url_for('index'))
+    msg = ''
+    if request.method == "POST":
+        # Create variables for easy access
+        username = request.form['username']
+        contact = request.form['contact']
+        email = request.form['email']
+        password = request.form['password']
+        cfmpass = request.form['cfmpass']
+        # try:
+        checkEmail = User.query.filter_by(email=email).first()
+        checkPhone = User.query.filter_by(contact=contact).first()
+        # except:
+        #     pass
+        if not username or not contact or not email or not password or not cfmpass:
+            msg = ['Please fill out the form!', 'error']
+        elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
+            msg = ['Invalid email address!', 'error']
+        elif not int(contact) or len(contact) != 11:
+            msg = ['Invalid phone number!', 'error']
+        elif checkEmail:
+            msg = ['This email has been taken, please try another one!', 'error']
+        elif checkPhone:
+            msg = ['This phone number has been taken, please try another one!', 'error']
+        elif password != cfmpass:
+            msg = ['Two password does not match!', 'error']
+        else:
+            passw = generate_password_hash(password)
+            user = User(username=username, contact=contact, email=email, password=passw, status=0)
+            try:
+                db.session.add(user)
+                db.session.commit()
+                flash('You\'ve registered successfully,  login now please!', ('success', 'check'))
+                return redirect(url_for('login'))
+            except:
+                msg = ['Something went wrong, Please try again!', 'error']
+        return render_template("signup_page.html", msg=msg)
+    return render_template("signup_page.html", msg=msg)
 
 @app.route("/delete/", methods=["GET", "POST"])
 def deleteComment():
     if request.method == "GET":
-        db.session.query(Comment).filter(Comment.content.is_(None), Comment.posted.is_(None)).delete()
-        db.session.commit()
-        return redirect(url_for('view'))
+        db.drop_all()
+        #db.session.query(Comment).filter(Comment.content.is_(None), Comment.posted.is_(None)).delete()
+        #db.session.commit()
+        return 'Droped'#redirect(url_for('view'))
 
 @app.route("/logout/")
 @login_required

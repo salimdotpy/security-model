@@ -30,12 +30,21 @@
                             <form class="w3-margin-top col-md-12" action="." method="POST">
                                 <h3>Get started now!</h3><br>
                                 {% if error %}
-                                    <div class="alert alert-warning" role="alert">
+                                    <div class="alert alert-warning fade in" role="alert">
                                         <a href="#" class="close" data-dismiss="alert">&times;</a>
                                         Incorrect username or password
                                     </div>
                                 {% endif %}
 
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                {% if messages %}
+                                {% for cat, message in messages %}
+                                <div class="alert alert-{{cat[0]}} fade in" role="alert">
+                                    <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'>
+                                    <b class="h4 text-bold">{{message}}</b></div>
+                                {% endfor %}
+                                {% endif %}
+                                {% endwith %}
                                 <div class="form-group">
                                     <input type="text" class="form-control w3-round-xlarge" name="username" placeholder="Enter Username">
                                 </div>
@@ -47,7 +56,7 @@
                                     <button class="btn btn-primary btn-block text-bold w3-round-xlarge" type="submit">Login</button>
                                 </div>
                                 <p class="text-center">Not have account?
-                                    <a href="" class="orange-text">Create one!</a></p>
+                                    <a href="{{url_for('signup')}}" class="orange-text">Create one!</a></p>
                                 <div class="form-group">
                                     <button type="reset" class="btn btn-danger w3-round-xlarge">Cancel</button>
                                     <a href="" class="pull-right">Forgot Password?</a>
