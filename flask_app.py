@@ -10,10 +10,6 @@ from collections import deque
 from datetime import datetime, timedelta
 import re
 
-from collections import deque
-from datetime import datetime, timedelta
-from flask_sqlalchemy import SQLAlchemy
-
 class AttackClassifier:
     def __init__(self):
         self.successful_logins = set()
@@ -34,10 +30,10 @@ class AttackClassifier:
         if self.is_interval_less_than_10_seconds():
             return 1
 
-        return 0
+        return 1
 
     def remove_old_failed_logins(self, current_time):
-        while self.failed_logins and self.failed_logins[0] < current_time - timedelta(seconds=10):
+        while self.failed_logins and self.failed_logins[0] < current_time - timedelta(seconds=100):
             self.failed_logins.popleft()
 
     def count_failed_logins(self):
@@ -48,7 +44,7 @@ class AttackClassifier:
             last_failed_time = self.failed_logins[-1]
             first_failed_time = self.failed_logins[0]
             interval = last_failed_time - first_failed_time
-            return interval < timedelta(seconds=10)
+            return interval < timedelta(seconds=100)
 
         return False
 
@@ -92,7 +88,6 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.filter_by(username=user_id).first()
 
-
 class Comment(db.Model):
 
     __tablename__ = "comments"
@@ -125,14 +120,15 @@ class Classification(db.Model):
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
 
+def check_new_ip(ip):
+    Classification.query.filter_by(ipaddress=ip).first()
 # Create an instance of the AttackClassifier
 classifier = AttackClassifier()
 
 # new and to remove
-@app.route('/api/ip', methods=['GET'])
-def get_client_ip():
-    remote_addr = request.headers['X-Real-IP'], request.headers,
-    return f"<h1>Client IP address: {remote_addr}</h1>"
+@app.route('/api/logs/', methods=['GET'])
+def get_logs():
+    return f"<h1>All logs: {Classification.query.all()}</h1>"
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -155,34 +151,14 @@ def view():
         return render_template("new_one.html")
     return redirect(url_for('index'))
 
-# Define a Flask route to handle new login entries
-# @app.route('/login', methods=['POST'])
-# def handle_login():
-#     # Extract necessary information from the request
-#     username = request.form.get('username')
-#     password = request.form.get('password')
-#     ipaddress = request.remote_addr
-
-#     # Create a new Log entry
-#     new_log = Log(username=username, password=password, ipaddress=ipaddress, status='')
-
-#     # Perform attack classification
-#     attack_category = classifier.classify_attack(username)
-
-#     if attack_category == 0:
-#         classifier.successful_logins.add(username)
-
-#     # Update the status of the Log entry based on the attack category
-#     new_log.status = str(attack_category)
-
-#     # Add the new Log entry to the database
-#     db.session.add(new_log)
-#     db.session.commit()
-#     return 'Login processed.'
-
 @app.route("/login/", methods=["GET", "POST"])
 def login():
+    check_ip = check_new_ip(request.headers['X-Real-IP'])
+    if check_ip:
+        return "<h1>You are not allow to visit this page</h1>"
     if request.method == "GET":
+        if not check_ip:
+            return "<h1>You are not allow to visit this page</h1> "+request.headers['X-Real-IP']
         return render_template("login_page.html", error=False)
 
     # Extract necessary information from the request
@@ -258,9 +234,9 @@ def signup():
 @app.route("/delete/", methods=["GET", "POST"])
 def deleteComment():
     if request.method == "GET":
-        db.drop_all()
-        #db.session.query(Comment).filter(Comment.content.is_(None), Comment.posted.is_(None)).delete()
-        #db.session.commit()
+        # db.drop_all()
+        db.session.query(Comment).filter(Comment.content.is_(None), Comment.posted.is_(None)).delete()
+        db.session.commit()
         return 'Droped'#redirect(url_for('view'))
 
 @app.route("/logout/")
