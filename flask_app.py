@@ -6,8 +6,51 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timedelta
 import re
+
+from collections import deque
+from datetime import datetime, timedelta
+from flask_sqlalchemy import SQLAlchemy
+
+class AttackClassifier:
+    def __init__(self):
+        self.successful_logins = set()
+        self.failed_logins = deque()
+
+    def classify_attack(self, ipaddress):
+        current_time = datetime.now()
+        self.remove_old_failed_logins(current_time)
+
+        if ipaddress in self.successful_logins:
+            return 0
+
+        self.failed_logins.append(current_time)
+
+        if self.count_failed_logins() >= 2:
+            return 2
+
+        if self.is_interval_less_than_10_seconds():
+            return 1
+
+        return 0
+
+    def remove_old_failed_logins(self, current_time):
+        while self.failed_logins and self.failed_logins[0] < current_time - timedelta(seconds=10):
+            self.failed_logins.popleft()
+
+    def count_failed_logins(self):
+        return len(self.failed_logins)
+
+    def is_interval_less_than_10_seconds(self):
+        if len(self.failed_logins) >= 2:
+            last_failed_time = self.failed_logins[-1]
+            first_failed_time = self.failed_logins[0]
+            interval = last_failed_time - first_failed_time
+            return interval < timedelta(seconds=10)
+
+        return False
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
@@ -71,6 +114,20 @@ class Log(db.Model):
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
 
+class Classification(db.Model):
+
+    __tablename__ = "classifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128))
+    password = db.Column(db.String(128))
+    ipaddress = db.Column(db.String(128))
+    time = db.Column(db.DateTime, default=datetime.now)
+    status = db.Column(db.String(20))
+
+# Create an instance of the AttackClassifier
+classifier = AttackClassifier()
+
 # new and to remove
 @app.route('/api/ip', methods=['GET'])
 def get_client_ip():
@@ -98,19 +155,64 @@ def view():
         return render_template("new_one.html")
     return redirect(url_for('index'))
 
+# Define a Flask route to handle new login entries
+# @app.route('/login', methods=['POST'])
+# def handle_login():
+#     # Extract necessary information from the request
+#     username = request.form.get('username')
+#     password = request.form.get('password')
+#     ipaddress = request.remote_addr
+
+#     # Create a new Log entry
+#     new_log = Log(username=username, password=password, ipaddress=ipaddress, status='')
+
+#     # Perform attack classification
+#     attack_category = classifier.classify_attack(username)
+
+#     if attack_category == 0:
+#         classifier.successful_logins.add(username)
+
+#     # Update the status of the Log entry based on the attack category
+#     new_log.status = str(attack_category)
+
+#     # Add the new Log entry to the database
+#     db.session.add(new_log)
+#     db.session.commit()
+#     return 'Login processed.'
+
 @app.route("/login/", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("login_page.html", error=False)
 
-    user = load_user(request.form["username"])
-    if user is None:
-        return render_template("login_page.html", error=True)
+    # Extract necessary information from the request
+    username = request.form["username"]
+    password = request.form["password"]
+    ipaddress = request.headers['X-Real-IP'] or request.remote_addr
+    user = load_user(username)
+    if user is None or not user.check_password(password):
+        makelog = Log(username=username, password=password, ipaddress=ipaddress, status=1)
+        db.session.add(makelog)
+        db.session.commit()
+        # Create a new Classification entry
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status='')
+        # Perform attack classification
+        attack_category = classifier.classify_attack(ipaddress)
 
-    if not user.check_password(request.form["password"]):
+        if attack_category == 0:
+            classifier.successful_logins.add(ipaddress)
+        else:
+            # Update the status of the Log entry based on the attack category
+            new_clfctn.status = str(attack_category)
+            # Add the new Log entry to the database
+            db.session.add(new_clfctn)
+            db.session.commit()
         return render_template("login_page.html", error=True)
 
     login_user(user)
+    makelog = Log(username=username, password=password, ipaddress=ipaddress, status=0)
+    db.session.add(makelog)
+    db.session.commit()
     return redirect(url_for('index'))
 
 @app.route("/signup/", methods=["GET", "POST"])
