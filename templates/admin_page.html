@@ -17,7 +17,18 @@
     <div class="modal fade" id="loginModal" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content" style="margin-top: 20vh;">
-            <div class="modal-header">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for cat, message in messages %}
+        {% if cat[0]=='danger' %}
+        <div class="alert alert-{{cat[0]}} fade in" role="alert">
+            <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'></i>
+            <b class="h4 text-bold">{{message}}</b></div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <div class="modal-header">
                 <b class="h3">Admin Login Form</b>
                 <a href="/login" title="Leave this page">
                     <span class="badge red white-text"><i class="fa fa-times-circle"></i></span>
@@ -198,8 +209,8 @@
         <div class="navbar-search">
             <form class="pull-left" action="#" style="margin-left: 40px">
                 <div class="input-field" style="position: relative">
-                    <label style="position: absolute; margin-left: 10px; padding-top: 2px">
-                        <i class="material-icons">search</i>
+                    <label style="position: absolute; margin-left: 10px;" class="black-text">
+                        <i class="fa fa-search black-text"></i>
                     </label>
                     <input type="text" placeholder="Search projects" class="form-control grey lighten-4"
                            style="display: inline-block; width: auto; font-size: 1rem" required>
@@ -220,7 +231,7 @@
             <li><a href="#">
                 <i class="fa fa-envelope"></i>
             </a></li>
-            <li><a href="#">
+            <li><a href="{{url_for('admin_logout')}}">
                 <i class="fa fa-power-off"></i>
             </a></li>
         </ul>
@@ -275,7 +286,7 @@
             </a>
         </li>
         <li>
-            <a href="javascript:void(0);" data-toggle="modal" data-backdrop="static" data-target="#alert">
+            <a href="{{url_for('admin_logout')}}" data-toggle="modal" data-backdrop="static" data-target="#alert">
                 <span class="menu-title">Logout</span>
                 <i class="fa fa-sign-out menu-icon"></i>
             </a>
@@ -285,9 +296,11 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for cat, message in messages %}
+        {% if cat[0]=='success' %}
         <div class="alert alert-{{cat[0]}} fade in" role="alert">
-            <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'>
+            <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'></i>
             <b class="h4 text-bold">{{message}}</b></div>
+        {% endif %}
         {% endfor %}
         {% endif %}
         {% endwith %}

@@ -88,7 +88,7 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.filter_by(username=user_id).first()
 
-class Admin(UserMixin, db.Model):
+class Admin(db.Model):
     __tablename__ = "admins"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -104,7 +104,7 @@ class Admin(UserMixin, db.Model):
     def get_id(self):
         return self.username
 
-class Setting(UserMixin, db.Model):
+class Setting(db.Model):
     __tablename__ = "settings"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -232,11 +232,9 @@ def signup():
         email = request.form['email']
         password = request.form['password']
         cfmpass = request.form['cfmpass']
-        # try:
         checkEmail = User.query.filter_by(email=email).first()
         checkPhone = User.query.filter_by(contact=contact).first()
-        # except:
-        #     pass
+
         if not username or not contact or not email or not password or not cfmpass:
             msg = ['Please fill out the form!', 'error']
         elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
@@ -264,7 +262,11 @@ def signup():
 
 @app.route("/admin/", methods=["GET", "POST"])
 def admin():
-    admin, msg = False, ''
+    admin, msg = False, False
+    # if not Admin.query.all():
+    #     add = Admin(username='admin', contact='08076738293', email='salimdotpy@gmail.com', password=generate_password_hash('secret'))
+    #     db.session.add(add)
+    #     db.session.commit()
     if 'admin' in session:
         admin = session['admin']
     if request.method == "POST" and 'loginBtn' in request.form:
@@ -272,18 +274,25 @@ def admin():
         username = request.form['username']
         password = request.form['password']
         # Check if account exists
-        try:
-            admins = Admin.query.filter_by(username=username).first()
-        except:
-            pass
+        admins = Admin.query.filter_by(username=username).first()
         if not username or not password:
             msg = ['Please fill out the form!', 'error']
         elif admins is None or not admins.check_password(password):
             msg = ['Invalid Credential', 'error']
+        if msg:
+            return render_template("admin_page.html", admin=admin, msg=msg)
         session['admin'] = admins
         flash('You\'ve successfully logged in!', ('success', 'check'))
         return redirect(url_for('admin'))
     return render_template("admin_page.html", admin=admin, msg=msg)
+
+@app.route("/admin/logout/", methods=["GET", "POST"])
+def admin_logout():
+    # Remove session data, this will log the admin out
+   session.pop('admin', None)
+   flash('You have successfully logged out!', ('warning', 'warning'))
+   # Redirect to login page
+   return redirect(url_for('admin'))
 
 @app.route("/delete/", methods=["GET", "POST"])
 def deleteComment():
