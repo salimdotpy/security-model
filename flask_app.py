@@ -1,7 +1,7 @@
 
 # A very simple Flask Hello World app for you to get started with...
 
-from flask import Flask, redirect, render_template, request, url_for, flash
+from flask import Flask, redirect, render_template, request, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin, current_user
@@ -88,6 +88,33 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.filter_by(username=user_id).first()
 
+class Admin(UserMixin, db.Model):
+    __tablename__ = "admins"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128))
+    contact = db.Column(db.String(128))
+    email = db.Column(db.String(128))
+    password = db.Column(db.String(128))
+    date = db.Column(db.DateTime, default=datetime.now)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
+
+    def get_id(self):
+        return self.username
+
+class Setting(UserMixin, db.Model):
+    __tablename__ = "settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    noOfAttemptFailed = db.Column(db.Integer, default=5)
+    timeInterval = db.Column(db.Integer, default=10)
+    modeOfPlay = db.Column(db.Integer, default=0)
+    reportTime = db.Column(db.String(128), default="Weekly")
+    emailResponse = db.Column(db.String(128))
+    date = db.Column(db.DateTime, default=datetime.now)
+
 class Comment(db.Model):
 
     __tablename__ = "comments"
@@ -128,7 +155,11 @@ classifier = AttackClassifier()
 # new and to remove
 @app.route('/api/logs/', methods=['GET'])
 def get_logs():
-    return f"<h1>All logs: {Classification.query.all()}</h1>"
+    users = Classification.query.all()
+    all = ''
+    for i in users:
+        all += i.ipaddress
+    return f"<h1>All logs: {all}</h1>"
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -230,6 +261,29 @@ def signup():
                 msg = ['Something went wrong, Please try again!', 'error']
         return render_template("signup_page.html", msg=msg)
     return render_template("signup_page.html", msg=msg)
+
+@app.route("/admin/", methods=["GET", "POST"])
+def admin():
+    admin, msg = False, ''
+    if 'admin' in session:
+        admin = session['admin']
+    if request.method == "POST" and 'loginBtn' in request.form:
+        # Create variables for easy access
+        username = request.form['username']
+        password = request.form['password']
+        # Check if account exists
+        try:
+            admins = Admin.query.filter_by(username=username).first()
+        except:
+            pass
+        if not username or not password:
+            msg = ['Please fill out the form!', 'error']
+        elif admins is None or not admins.check_password(password):
+            msg = ['Invalid Credential', 'error']
+        session['admin'] = admins
+        flash('You\'ve successfully logged in!', ('success', 'check'))
+        return redirect(url_for('admin'))
+    return render_template("admin_page.html", admin=admin, msg=msg)
 
 @app.route("/delete/", methods=["GET", "POST"])
 def deleteComment():

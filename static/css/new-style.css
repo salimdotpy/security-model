@@ -1,12 +1,12 @@
-/*======================================================================================================================
+/*=============================================================================
     Authour: Selim Adekola
     100% Free To use For Personal And Commercial Use.
-    IN EXCHANGE JUST TELL PEOPLE ABOUT THIS WEBSITE
-======================================================================================================================*/
+    IN EXCHANGE JUST TELL PEOPLE ABOUT THIS AUTHOUR
+==============================================================================*/
 
-/*======================================================================================================================
+/*=============================================================================
     GENERAL STYLES
-======================================================================================================================*/
+==============================================================================*/
 
 * {
     box-sizing: border-box;
@@ -71,10 +71,6 @@ nav li:hover, nav li {
     background: #ccc;
 }
 
-/*nav li a, .side-nav>li a{*/
-/*background: #fcfcfc!important;*/
-/*}*/
-
 input.b-none:hover {
     border: none;
 }
@@ -84,7 +80,6 @@ li.dropdown > ul > li, li.dropdown > ul > li a {
     width: 100%;
 }
 
-/**/
 .side-nav li {
     padding: 0 2.25rem;
 }
@@ -103,7 +98,6 @@ li.dropdown > ul > li, li.dropdown > ul > li a {
     white-space: nowrap;
     padding: 1.125rem 0 1.125rem 0;
     color: #3e4b5b;
-    /*background: #fff !important;*/
 }
 
 .side-nav li.active > a .menu-title {
@@ -182,7 +176,7 @@ li a[data-toggle].collapsed .menu-title:after {
     font-size: x-small;
 }
 
-li a[data-toggle]:not(.collapsed) .menu-title:after {
+li a[data-toggle]:not(.collapsed):not(a[data-toggle="modal"]) .menu-title:after {
     font-family: 'FontAwesome';
     content: '\f078';
     position: absolute;
@@ -191,20 +185,15 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
     font-size: x-small;
 }
 
-/**/
-/*======================================================================================================================
+/*=============================================================================
     MOBILE STYLES
-======================================================================================================================*/
+==============================================================================*/
 @media (max-width: 990px) {
 
-    /*li.dropdown:hover .dropdown-menu, li.dropdown:fucos .dropdown-menu {*/
-    /*display: block!important;*/
-    /*}*/
-    /*nav.nav > ul > li > ul.dropdown-menu {*/
-    /*position: static;*/
-    /*background: #000 !important;*/
-    /*float: none;*/
-    /*}*/
+    .drag-target {
+        z-index: 9998!important;
+    }
+
     nav ul, .navbar-toggler, .navbar-search {
         margin-top: inherit;
         line-height: 64px;
@@ -218,12 +207,6 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
         left: 40%;
         line-height: 70px;
         float: left;
-        /*display: none;*/
-    }
-
-    nav ul {
-        /*margin-top: inherit;*/
-        /*line-height: 70px;*/
     }
 
     .navbar .navbar-brand .brand-logo-min {
@@ -276,14 +259,13 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
 
 }
 
-/*======================================================================================================================
+/*=============================================================================
     WINDOW STYLES
-======================================================================================================================*/
+==============================================================================*/
 @media only screen and (min-width: 991px) {
 
     .navbar-toggler {
         height: 64px;
-        /*line-height: 64px;*/
         font-size: 1.5rem;
         margin-left: 255px;
         float: left;
@@ -293,7 +275,6 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
         display: none;
     }
 
-    /**/
     main {
         height: calc(100% + 60px);
         display: -webkit-box;
@@ -334,7 +315,6 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
 
     .side-nav li {
         float: none;
-        /*padding: 0 15px;*/
     }
 
     .side-nav li:hover, .side-nav li.active {
@@ -359,15 +339,6 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
         padding-top: 30px;
         padding-left: 20px;
         padding-right: 20px;
-    }
-
-    /**/
-    .navbar-search > form {
-
-    }
-
-    main {
-
     }
 
     /*On Open*/
@@ -430,7 +401,6 @@ li a[data-toggle]:not(.collapsed) .menu-title:after {
     .open .side-nav li.hover-open .collapse,
     .open .side-nav li.hover-open .collapsing {
         display: block;
-        /*padding: .5rem 0;*/
         background: #fcfcfc;
         border-radius: 0 0 5px 0;
         position: absolute;
