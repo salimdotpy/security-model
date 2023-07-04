@@ -1,5 +1,12 @@
 
 # A very simple Flask Hello World app for you to get started with...
+from apscheduler.schedulers.background import BackgroundScheduler
+from fpdf import FPDF
+
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
 from flask import Flask, redirect, render_template, request, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -8,48 +15,13 @@ from flask_login import login_required, login_user, LoginManager, logout_user, U
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import deque
 from datetime import datetime, timedelta
-import re
-
-class AttackClassifier:
-    def __init__(self):
-        self.successful_logins = set()
-        self.failed_logins = deque()
-
-    def classify_attack(self, ipaddress):
-        current_time = datetime.now()
-        self.remove_old_failed_logins(current_time)
-
-        if ipaddress in self.successful_logins:
-            return 0
-
-        self.failed_logins.append(current_time)
-
-        if self.count_failed_logins() >= 2:
-            return 2
-
-        if self.is_interval_less_than_10_seconds():
-            return 1
-
-        return 1
-
-    def remove_old_failed_logins(self, current_time):
-        while self.failed_logins and self.failed_logins[0] < current_time - timedelta(seconds=100):
-            self.failed_logins.popleft()
-
-    def count_failed_logins(self):
-        return len(self.failed_logins)
-
-    def is_interval_less_than_10_seconds(self):
-        if len(self.failed_logins) >= 2:
-            last_failed_time = self.failed_logins[-1]
-            first_failed_time = self.failed_logins[0]
-            interval = last_failed_time - first_failed_time
-            return interval < timedelta(seconds=100)
-
-        return False
+import re, numpy as np
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
+app.config["threaded"] = True
+scheduler = BackgroundScheduler()
+scheduler_started = False
 
 SQLALCHEMY_DATABASE_URI = "mysql+mysqlconnector://{username}:{password}@{hostname}/{databasename}".format(
     username="salimdotpy",
@@ -103,6 +75,15 @@ class Admin(db.Model):
 
     def get_id(self):
         return self.username
+    def to_dict(self):
+        return {
+            'id':self.id,
+            'username': self.username,
+            'contact': self.contact,
+            'email': self.email,
+            'password': self.password,
+            'date': self.date
+        }
 
 class Setting(db.Model):
     __tablename__ = "settings"
@@ -114,6 +95,16 @@ class Setting(db.Model):
     reportTime = db.Column(db.String(128), default="Weekly")
     emailResponse = db.Column(db.String(128))
     date = db.Column(db.DateTime, default=datetime.now)
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'noOfAttemptFailed': self.noOfAttemptFailed,
+            'timeInterval': self.timeInterval,
+            'modeOfPlay': self.modeOfPlay,
+            'reportTime': self.reportTime,
+            'emailResponse': self.emailResponse,
+            'date': self.date
+        }
 
 class Comment(db.Model):
 
@@ -147,19 +138,198 @@ class Classification(db.Model):
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
 
-def check_new_ip(ip):
-    Classification.query.filter_by(ipaddress=ip).first()
-# Create an instance of the AttackClassifier
-classifier = AttackClassifier()
+class AttackClassifier:
+    def __init__(self):
+        #try:
+        setting = Setting.query.get(1)
+        self.timeInterval = setting.timeInterval
+        self.noOfAttemptFailed = setting.noOfAttemptFailed
+        # except:
+        #     self.timeInterval = 10
+        #     self.noOfAttemptFailed = 2
+        self.successful_logins = set()
+        self.failed_logins = deque()
 
-# new and to remove
-@app.route('/api/logs/', methods=['GET'])
-def get_logs():
-    users = Classification.query.all()
-    all = ''
-    for i in users:
-        all += i.ipaddress
-    return f"<h1>All logs: {all}</h1>"
+    def classify_attack(self, ipaddress):
+        current_time = datetime.now()
+        self.remove_old_failed_logins(current_time)
+        cnd = self.count_failed_logins() >= self.noOfAttemptFailed
+        if ipaddress in self.successful_logins:
+            return 0
+        self.failed_logins.append(current_time)
+        if cnd:
+            return 2
+
+        if self.is_interval_less():
+            return 1
+
+        return 3
+
+    def remove_old_failed_logins(self, current_time):
+        while self.failed_logins and self.failed_logins[0] < current_time - timedelta(seconds=self.timeInterval):
+            self.failed_logins.popleft()
+
+    def count_failed_logins(self):
+        return len(self.failed_logins)
+
+    def is_interval_less(self):
+        if len(self.failed_logins) >= self.noOfAttemptFailed:
+            last_failed_time = self.failed_logins[-1]
+            first_failed_time = self.failed_logins[0]
+            interval = last_failed_time - first_failed_time
+            return interval < timedelta(seconds=self.timeInterval)
+
+        return False
+
+# Function for Model
+def modelClass():
+    # Assuming there are two players and three strategies for each player
+    num_players = 2
+
+    # initialise Data
+    r=10
+    ca1=2; ca2=4
+    cd1=3; cd2=6
+
+    # pass in the Model Formulated
+    q_0=ca1/r
+    q_1=(ca2-ca1)/r
+    q_2=1-(ca2/r)
+    p_0=1+(cd1-cd2)/r
+    p_1=cd1/2*r
+    p_2=(2*cd2-3*cd1)/(2*r)
+
+    # Example probabilities associated with a Nash equilibrium
+    nash_equilibrium_probs = np.array([[p_0, p_1, p_2], [q_0, q_1, q_2]])
+
+    # Simulate strategies
+    chosen_strategies = []
+    for player in range(num_players):
+        random_num = np.random.random()  # Generate a random number between [0, 1]
+
+        cumulative_probs = np.cumsum(nash_equilibrium_probs[player])
+        chosen_strategy = np.argmax(random_num <= cumulative_probs)
+        chosen_strategies.append(chosen_strategy)
+
+    return chosen_strategies
+
+# Create a subclass of FPDF
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'Attack Report | '+str(datetime.now()).split('.')[0], 0, 1, 'C')
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, 'Page %s' % self.page_no(), 0, 0, 'C')
+
+    def add_table(self, header, data, max_cell_width):
+        self.set_font('Arial', 'B', 11)
+        cell_height, i = 7, 0
+        # Set table header
+        for item in header:
+            maxc = max_cell_width[i]
+            truncated_item = item[:maxc-len(str(item))-3] + '...' if len(str(item)) > maxc-len(str(item)) else item
+            self.cell(maxc, cell_height, str(truncated_item), border=1, align='C')
+            i+=1
+        self.ln()
+        # Set table data
+        self.set_font('Arial', '', 11)
+        for row in data:
+            j=0
+            for item in row:
+                maxc = max_cell_width[j]
+                truncated_item = item[:maxc-len(str(item))-3] + '...' if len(str(item)) > maxc-len(str(item)) else item
+                self.cell(maxc, cell_height, str(truncated_item), border=1, align='L')
+                j+=1
+            self.ln()
+
+def generate_pdf(header, data):
+    pdf = PDF()
+    pdf.add_page()
+    # Add the table to the PDF
+    pdf.add_table(header, data, [43, 43, 40, 45, 20])
+    # Define the file path where the PDF will be saved
+    return pdf.output(dest='S')
+
+def send_email(sender_email, sender_password, receiver_email, subject, body, attachment):
+    # Create a MIME multipart message
+    message = MIMEMultipart()
+    message['Subject'] = subject
+    message['From'] = sender_email
+    message['To'] = ', '.join(receiver_email)
+
+    # Attach the body of the email
+    message.attach(MIMEText(body, 'plain'))
+
+    # Attach the PDF file
+    attachment_part = MIMEApplication(attachment, str(datetime.now())+'_login_logs.pdf')
+    attachment_part['Content-Disposition'] = f'attachment; filename="{str(datetime.now())}_login_logs.pdf"'
+    message.attach(attachment_part)
+
+    # Connect to the SMTP server and send the email
+    smtp_server = smtplib.SMTP('smtp.gmail.com', 587)
+    smtp_server.starttls()
+    smtp_server.login(sender_email, sender_password)
+    smtp_server.sendmail(sender_email, receiver_email, message.as_string())
+    smtp_server.quit()
+
+def schedule_email():
+    setting = Setting.query.get(1)
+    # Your login logs retrieval logic here# Define table header and data
+    header = ['IP Address', 'Event Time', 'Attack', 'Defence', 'Remark']
+    try:
+        logs = Classification.query.all()
+        data=[]; item=[]
+        for log in logs:
+            remark = 0 if log.status==0 else 1
+            item.append(log.ipaddress)
+            item.append(log.time)
+            item.append(log.status)
+            item.append(log.status)
+            item.append(remark)
+            data.append(item)
+            item=[]
+    except:
+        data = [['None', 'None', 'None', 'None', 'None']]
+    # Generate the PDF
+    pdf_data = generate_pdf(header, data)
+
+    # Schedule the email to be sent
+    sender_email = 'osenikamorudeen36@gmail.com'
+    sender_password = 'pwwgffcfjnvrrcon'
+    receiver_email = setting.emailResponse #"salimdotpy@gmail.com"
+    subject = setting.reportTime+' Attack Report'; body = str(datetime.now()).split('.')[0]
+    body = f'Please find attached the Attack Report | {body}'
+    send_email(sender_email, sender_password, receiver_email, subject, body, pdf_data)
+
+def start_scheduler():
+    global scheduler_started, scheduler
+    # scheduler = BackgroundScheduler()
+    if not scheduler_started:
+        schedule_email()
+        # scheduler.add_job(schedule_email, 'interval', seconds=20, next_run_time=datetime.now() + timedelta(seconds=5))
+        # scheduler.start()
+        scheduler_started = True
+        return "Scheduler started"
+    else:
+        return "Scheduler is already running"
+
+def stop_scheduler():
+    global scheduler_started, scheduler
+    if scheduler_started:
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
+        scheduler_started = False
+        return "Scheduler stopped"
+    else:
+        return "Scheduler is not running"
+
+def check_new_ip(ip):
+    ip = Classification.query.filter_by(ipaddress=ip).order_by(Classification.id.desc()).first()
+    try: return ip.status
+    except: return False
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -174,6 +344,18 @@ def index():
         db.session.commit()
     return redirect(url_for('index'))
 
+@app.route("/ip/", methods=["GET", "POST"])
+def ips():
+    return f"(real = {request.headers['X-Real-IP']}, add = {request.remote_addr})"
+
+@app.route('/start_scheduler', methods=['GET'])
+def start_scheduler_endpoint():
+    return start_scheduler()
+
+@app.route('/stop_scheduler', methods=['GET'])
+def stop_scheduler_endpoint():
+    return stop_scheduler()
+
 @app.route("/view/", methods=["GET", "POST"])
 def view():
     if request.method == "GET":
@@ -182,16 +364,21 @@ def view():
         return render_template("new_one.html")
     return redirect(url_for('index'))
 
+# Create an instance of the AttackClassifier
+classifier = AttackClassifier()
 @app.route("/login/", methods=["GET", "POST"])
 def login():
     check_ip = check_new_ip(request.headers['X-Real-IP'])
-    if check_ip:
-        return "<h1>You are not allow to visit this page</h1>"
+    setting = Setting.query.get(1)
+    classifier.timeInterval = setting.timeInterval
+    classifier.noOfAttemptFailed = setting.noOfAttemptFailed
     if request.method == "GET":
-        if not check_ip:
-            return "<h1>You are not allow to visit this page</h1> "+request.headers['X-Real-IP']
-        return render_template("login_page.html", error=False)
+        if check_ip =='1' or check_ip =='2':
+            return "<h1 style='text-align:center; font-size:50px'>Error(419): You are not allow to visit this page</h1>"
+        return render_template("login_page.html")
 
+    if check_ip =='1' or check_ip =='2':
+        return "<h1 style='text-align:center; font-size:50px'>Error(419): You are not allow to visit this page</h1>"
     # Extract necessary information from the request
     username = request.form["username"]
     password = request.form["password"]
@@ -208,13 +395,19 @@ def login():
 
         if attack_category == 0:
             classifier.successful_logins.add(ipaddress)
+        elif attack_category == 3:
+            pass
+            #classifier.failed_logins.append(datetime.now())
+            #print(f'cat={attack_category} fail={len(classifier.failed_logins)} att={classifier.noOfAttemptFailed}')
         else:
             # Update the status of the Log entry based on the attack category
             new_clfctn.status = str(attack_category)
             # Add the new Log entry to the database
             db.session.add(new_clfctn)
             db.session.commit()
-        return render_template("login_page.html", error=True)
+            #print(f'cat={attack_category} fail={len(classifier.failed_logins)} att={classifier.noOfAttemptFailed}')
+        flash('Incorrect username or password', ('danger', 'warning'))
+        return redirect(url_for('login'))
 
     login_user(user)
     makelog = Log(username=username, password=password, ipaddress=ipaddress, status=0)
@@ -261,14 +454,14 @@ def signup():
     return render_template("signup_page.html", msg=msg)
 
 @app.route("/admin/", methods=["GET", "POST"])
-def admin():
+def admin_():
     admin, msg = False, False
-    # if not Admin.query.all():
-    #     add = Admin(username='admin', contact='08076738293', email='salimdotpy@gmail.com', password=generate_password_hash('secret'))
-    #     db.session.add(add)
-    #     db.session.commit()
+    widget = {}
     if 'admin' in session:
         admin = session['admin']
+        widget['setting'] = Setting.query.get(1)
+        widget['attack'] = Classification.query.all() or False
+
     if request.method == "POST" and 'loginBtn' in request.form:
         # Create variables for easy access
         username = request.form['username']
@@ -279,12 +472,67 @@ def admin():
             msg = ['Please fill out the form!', 'error']
         elif admins is None or not admins.check_password(password):
             msg = ['Invalid Credential', 'error']
-        if msg:
+        if msg != False:
             return render_template("admin_page.html", admin=admin, msg=msg)
-        session['admin'] = admins
+        session['admin'] = admins.to_dict()
         flash('You\'ve successfully logged in!', ('success', 'check'))
-        return redirect(url_for('admin'))
-    return render_template("admin_page.html", admin=admin, msg=msg)
+        return redirect(url_for('admin_'))
+    return render_template("admin_page.html", admin=admin, msg=msg, widget=widget)
+
+@app.route("/admin/action/", methods=["GET", "POST"])
+def admin_settings():
+    msg = False
+    if 'admin' in session:
+        if request.method == "POST" and 'settingFrm' in request.form:
+            # Create variables for easy access
+            noOfAttemptFailed = request.form['noOfAttemptFailed']
+            timeInterval = request.form['timeInterval']
+            modeOfPlay = request.form['modeOfPlay']
+            reportTime = request.form['reportTime']
+            emailResponse = request.form['emailResponse']
+            settings = Setting.query.all()
+            if not noOfAttemptFailed or not timeInterval or not modeOfPlay or not reportTime or not emailResponse:
+                msg = ['Please fill out the form!', 'error']
+            if not settings:
+                settings = Setting(noOfAttemptFailed=noOfAttemptFailed, timeInterval=timeInterval,
+                modeOfPlay=modeOfPlay, reportTime=reportTime, emailResponse=emailResponse)
+                db.session.add(settings)
+                db.session.commit()
+                msg = ['Settings inserted successfully!', 'success']
+            else:
+                settings = Setting.query.get(1)
+                settings.noOfAttemptFailed = noOfAttemptFailed
+                settings.timeInterval = timeInterval
+                settings.modeOfPlay = modeOfPlay
+                settings.reportTime = reportTime
+                settings.emailResponse = emailResponse
+                db.session.commit()
+                msg = ['Settings updated successfully!', 'success']
+            return msg
+
+        if request.method == "POST" and 'BorU' in request.form:
+            # Create variables for easy access
+            msg=''
+            ipaddress = request.form['ipaddress']
+            status = request.form['status']
+            action = request.form['action']
+            attack = Classification.query.filter_by(ipaddress=ipaddress).all()
+            if not attack:
+                msg = ['An error occur!', 'error']
+            else:
+                if action=='d':
+                    rows = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+                    rows.delete()
+                    db.session.commit()
+                    msg = ['Attack log deleted successfully!', 'success']
+                else:
+                    # Example of updating multiple rows
+                    rows = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+                    rows.update({Classification.status: status, Classification.time:datetime.now()}, synchronize_session='fetch')
+                    db.session.commit()
+                    msg = ['Attack log updated successfully!', 'success']
+            return msg
+    return redirect(url_for('admin_'))
 
 @app.route("/admin/logout/", methods=["GET", "POST"])
 def admin_logout():
@@ -292,9 +540,9 @@ def admin_logout():
    session.pop('admin', None)
    flash('You have successfully logged out!', ('warning', 'warning'))
    # Redirect to login page
-   return redirect(url_for('admin'))
+   return redirect(url_for('admin_'))
 
-@app.route("/delete/", methods=["GET", "POST"])
+@app.route("/do-not/delete/", methods=["GET", "POST"])
 def deleteComment():
     if request.method == "GET":
         # db.drop_all()

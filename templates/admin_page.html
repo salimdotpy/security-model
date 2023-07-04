@@ -7,9 +7,25 @@
     <link rel="stylesheet" href="../static/css/materialize.min.css"/>
     <link rel="stylesheet" href="../static/css/new-style.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" integrity="sha512-XJ3ntWHl40opEiE+6dGhfK9NAKOCELrpjiBRQKtu6uJf9Pli8XY+Hikp7rlFzY4ElLSFtzjx9GGgHql7PLSeog==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <style>
+        .filter-input{
+            border: 1px solid #aaa !important;
+            border-radius: 3px !important;
+            padding: 5px !important;
+            background-color: transparent !important;
+            margin-left: 3px !important;
+            width: auto !important;
+            height: auto !important;
+            margin: auto !important;
+            display: inline-block !important;
+        }
+        }
+    </style>
 </head>
 <body class="">
     {%if admin == False %}
@@ -20,10 +36,10 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for cat, message in messages %}
-        {% if cat[0]=='danger' %}
-        <div class="alert alert-{{cat[0]}} fade in" role="alert">
-            <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'></i>
-            <b class="h4 text-bold">{{message}}</b></div>
+        {% if cat[0] !='success' %}
+            <script>
+                Materialize.toast('{{message}}', 5000);
+            </script>
         {% endif %}
         {% endfor %}
         {% endif %}
@@ -60,12 +76,73 @@
             <div class="modal-footer">
                 <button class="btn" onclick="$('#cncLBtn').click()">Cancel</button>
                 <button class="btn" onclick="$('#loginBtn').click()">Login</button>
-                <b class="text-center pull-left">&copy; 2023 Security Model</b>
+                <b class="text-center pull-left">&copy; <span id="copyYear"></span> Security Model</b>
             </div>
         </div>
     </div>
 </div>
     {% else %}
+    <div class="modal fade" id="logModal" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="margin-top: 2vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Manage Attack Log</b>
+            </div>
+            <div class="modal-body">
+                <table id="logs" class="display" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>S/N</th><th>username</th>
+                        <th>password</th><th>IPaddress</th>
+                        <th>time</th><th>status</th>
+                        <th>BlockStatus</th><th style="width:100px">Action</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% if widget['attack'] %}
+                        {% for attack in widget['attack'] %}
+                        <tr>
+                            <td>{{loop.index}}</td>
+                            <td>{{ attack.username }}</td>
+                            <td>{{ attack.password }}</td>
+                            <td>{{ attack.ipaddress }}</td>
+                            <td>{{ attack.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                            <td>{{ attack.status }}</td>
+                            <td>
+                                {% if attack.status == '1' or attack.status == '2' %}
+                                    <span class="label label-danger">Blocked</span>
+                                {% else %}
+                                    <span class="label label-success">Not Block</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attack.status == '1' or attack.status == '2' %}
+                                    <span class="btn" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0');"
+                                    title="Unblock"><i class="fa fa-unlock"></i></span>
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0','d');"
+                                    title="Delete"><i class="fa fa-trash"></i></span>
+                                {% else %}
+                                    <span class="btn pink" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2');"
+                                    title="Block"><i class="fa fa-lock"></i></span>
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2','d');"
+                                    title="Delete"><i class="fa fa-trash"></i></span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="settingModal" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content" style="margin-top: 20vh;">
@@ -74,16 +151,16 @@
                 <b class="h3">Change Model Settings</b>
             </div>
             <div class="modal-body">
-                <form class="w3-margin-top row" method="post">
+                <form class="w3-margin-top row" method="post" id="settingFrm">
                     <div class="form-group col-md-6">
                         <label>No of Attempt Failed: </label>
                         <input type="number" name="noOfAttemptFailed" class="form-control"
-                               placeholder="Enter No of Attempt Failed" value="5" required>
+                               placeholder="Enter No of Attempt Failed" value="{{widget['setting'].noOfAttemptFailed or 5}}" required>
                     </div>
                     <div class="form-group col-md-6">
                         <label>Time Interval (s): </label>
                         <input type="number" name="timeInterval" class="form-control" placeholder="Enter Time Interval"
-                               value="5" required>
+                               value="{{widget['setting'].timeInterval or 5}}" required>
                     </div>
                     <div class="form-group col-md-6">
                         <label>Mode of Play: </label>
@@ -97,22 +174,22 @@
                         <label>Report Time: </label>
                         <select class="form-control" name="reportTime" required>
                             <option value="">Select</option>
-                            <option value="Weekly" selected>Weekly</option>
-                            <option value="Monthly">Monthly</option>
-                            <option value="Yearly">Yearly</option>
+                            <option value="0">Daily</option>
+                            <option value="1" selected>Weekly</option>
+                            <option value="2">Monthly</option>
+                            <option value="3">Yearly</option>
                         </select>
                     </div>
                     <div class="form-group col-md-12">
                         <label>Email Response: </label>
                         <input type="email" class="form-control" name="emailResponse" placeholder="Enter Email Response"
-                               required>
+                              value="{{widget['setting'].emailResponse or ''}}" required>
                     </div>
-                    <button class="hidden" name="settingBtn" id="settingBtn"></button>
                 </form>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary" onclick="$('#settingBtn').click()">OK
+                <button class="btn btn-primary" onclick="changeSettings()">Submit
                 </button>
             </div>
         </div>
@@ -193,10 +270,10 @@
 </div>
 <nav class="navbar-fixed-top">
     <div class="nav-wrap">
-        <a href="#" class="brand-logo" title="Security Model">
+        <a href="{{url_for('admin_')}}" class="brand-logo" title="Security Model">
             <i class="fa fa fa-lock"></i>
             S-Model</a>
-        <a href="#" class="brand-logo mini" title="Security Model">
+        <a href="{{url_for('admin_')}}" class="brand-logo mini" title="Security Model">
             <i class="fa fa fa-lock"></i>
         </a>
         <a href="#mobile-demo" data-activates="mobile-demo" class="button-collapse">
@@ -245,12 +322,11 @@
                     <i class="fa fa-circle fa-stack-2x"></i>
                     <i class="fa fa fa-user-secret fa-stack-1x fa-inverse over-blue-text"></i>
                 </span>
-
-            <p class="h4 text-bold truncate">Hi! Admin</p>
+            <p class="h4 text-bold truncate">Hi! {{admin.username}}</p>
             <br>
         </li>
         <li class="">
-            <a href="#">
+            <a href="{{url_for('admin_')}}">
                 <span class="menu-title">Dashboard</span>
                 <i class="fa fa-dashboard menu-icon"></i>
             </a>
@@ -274,19 +350,19 @@
             </a>
         </li>
         <li>
-            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#loginModals" id="oLogin">
+            <a href="#">
                 <span class="menu-title">Logs</span>
                 <i class="fa fa-table menu-icon"></i>
             </a>
         </li>
         <li>
-            <a href="#">
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#logModal">
                 <span class="menu-title">Report</span>
                 <i class="fa fa-list menu-icon"></i>
             </a>
         </li>
         <li>
-            <a href="{{url_for('admin_logout')}}" data-toggle="modal" data-backdrop="static" data-target="#alert">
+            <a href="{{url_for('admin_logout')}}">
                 <span class="menu-title">Logout</span>
                 <i class="fa fa-sign-out menu-icon"></i>
             </a>
@@ -406,6 +482,14 @@
     $(document).ready(function () {
         $('#oLogin').click();
         $(".button-collapse").sideNav();
+        $('#logs').DataTable();
+        $('#logs_length select').addClass('filter-input');
+        $('#logs_filter input').addClass('filter-input');
+        $('#logs_wrapper').addClass('table-responsive');
+        $(document).ready(function () {
+            var dd = new Date();
+            $('#copyYear').text(dd.getFullYear());
+        })
     });
     $("#toggle").on("click", function () {
         $("body").toggleClass("open");
@@ -433,20 +517,43 @@
             }
         }
     });
-    function adminLogin(){
+    $('#myModal').on ('hidden.bs.modal', function(){
+        window.location.reload();
+    });
+    function changePass(){
         $.ajax({
-            url:'/admin/login', method:'post', data: $('#loginFrm').serialize()+'&loginFrm=1',
-            success: function (res) {
-                if(res[1]){
-                    $("#lMsg").html('');
-                    return true
-                }
-                else{
-                    $("#lMsg").html(res[0]);
-                    return false
-                }
+        url:'/admin/change-password', method:'post', data: 'changePassFrm=1&'+$('#changePassFrm').serialize(),
+        success: function (res) {
+            if(res){
+                Materialize.toast(res[0], 5000);
+                setTimeout(function () {window.location.reload();}, 300);
             }
-        })
+        }
+    })
+    }
+    function changeSettings(){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'settingFrm=1&'+$('#settingFrm').serialize(),
+        success: function (res) {
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success')
+                setTimeout(function () {window.location.reload();}, 500);
+            }
+        }
+    })
+    }
+    function BorU(id, status, action=''){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'BorU=1&ipaddress='+id+'&status='+status+'&action='+action,
+        success: function (res) {
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success')
+                setTimeout(function () {window.location.reload();}, 500);
+            }
+        }
+    });
     }
 </script>
 </body>
