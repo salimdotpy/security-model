@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <title>{% block title %}{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="../static/css/materialize.min.css"/>
+    <link rel="stylesheet" href="../static/css/new-style.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" integrity="sha512-XJ3ntWHl40opEiE+6dGhfK9NAKOCELrpjiBRQKtu6uJf9Pli8XY+Hikp7rlFzY4ElLSFtzjx9GGgHql7PLSeog==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <style>
+        .filter-input{
+            border: 1px solid #aaa !important;
+            border-radius: 3px !important;
+            padding: 5px !important;
+            background-color: transparent !important;
+            margin-left: 3px !important;
+            width: auto !important;
+            height: auto !important;
+            margin: auto !important;
+            display: inline-block !important;
+        }
+        .loading{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            z-index: 10000;
+            min-height: 100vh; width: 100%;
+            background: rgba(50,50,50,.7);
+        }
+        .row {
+            margin-right: -15px;
+            margin-left: -15px;
+        }
+    </style>
+    {% block style %}{% endblock %}
+</head>
+<body>
+    <div class="loading">
+        <span class="fa-stack fa-lg tada animated infinite" style="position: absolute" title="Loading...">
+            <i class="fa fa-circle fa-stack-2x text-primary"></i>
+            <i class="fa fa-lock fa-stack-1x fa-inverse"></i>
+        </span>
+        <i class="fa fa-spinner fa-pulse fa-4x white-text"></i>
+    </div>
+    {%if admin == False %}
+    <a href="#" data-toggle="modal" data-backdrop="static" data-target="#loginModal" class="hidden" id="oLogin"></a>
+    <div class="modal fade" id="loginModal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="margin-top: 20vh;">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for cat, message in messages %}
+        {% if cat[0] !='success' %}
+            <script>
+                Materialize.toast('{{message}}', 5000, 'rounded');
+            </script>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <div class="modal-header">
+                <b class="h3">Admin Login Form</b>
+                <a href="/login" title="Leave this page">
+                    <span class="badge red white-text"><i class="fa fa-times-circle"></i></span>
+                </a>
+            </div>
+            <div class="modal-body">
+                <form class="w3-margin-top row" method="post" autocomplete="off" id="loginFrm">
+                    <div class="col-md-12">
+                        {% if msg %}
+                            <div class='alert alert-danger fade in'>
+                                <a href='#' class='close' data-dismiss='alert'>&times;</a><i class='fa fa-fw fa-warning'></i><b>
+                            {{msg[0]}}</b></div>
+                        {% endif %}
+                        <div class="form-group">
+                            <label class="hidden-sm hidden-xs">Username: </label>
+                            <input type="text" name="username" class="form-control" placeholder="Enter Username"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label class="hidden-sm hidden-xs">Password: </label>
+                            <input type="password" name="password" class="form-control" placeholder="Enter New Password"
+                                   required>
+                        </div>
+                        <button class="hidden" name="loginBtn" id="loginBtn"></button>
+                        <button class="hidden" type="reset" id="cncLBtn"></button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="$('#cncLBtn').click()">Cancel</button>
+                <button class="btn" onclick="$('#loginBtn').click()">Login</button>
+                <b class="text-center pull-left">&copy; <span id="copyYear"></span> Security Model</b>
+            </div>
+        </div>
+    </div>
+</div>
+    {% else %}
+    <div class="modal fade" id="logModal" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="margin-top: 2vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Login Logs</b>
+            </div>
+            <div class="modal-body">
+                <table id="logs" class="display" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>S/N</th><th>username</th>
+                        <th>password</th><th>IPaddress</th>
+                        <th style="width:200px">time</th><th>status</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% if widget['log'] %}
+                        {% for log in widget['log'] %}
+                        <tr>
+                            <td>{{loop.index}}</td>
+                            <td>{{ log.username }}</td>
+                            <td>{{ log.password }}</td>
+                            <td>{{ log.ipaddress }}</td>
+                            <td>{{ log.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                            <td>{{ log.status }}</td>
+                        </tr>
+                    {% endfor %}
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="log1Modal" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="margin-top: 2vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Classification Logs</b>
+            </div>
+            <div class="modal-body">
+                <table id="log1" class="display" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>S/N</th><th>username</th><th>password</th>
+                        <th>IPaddress</th><th style="width:200px">time</th>
+                        <th>status</th><th>ModeOfPlay</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% if widget['log1'] %}
+                        {% for log in widget['log1'] %}
+                        <tr>
+                            <td>{{loop.index}}</td>
+                            <td>{{ log.username }}</td>
+                            <td>{{ log.password }}</td>
+                            <td>{{ log.ipaddress }}</td>
+                            <td>{{ log.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                            <td>{{ log.status }}</td>
+                            <td>{% if log.mode == 0 %}Based on Model
+                            {% else %}Based on Attack {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="reportModal" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="margin-top: 2vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Manage Attack Log Report</b>
+            </div>
+            <div class="modal-body">
+                <table id="reports" class="display" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>S/N</th><th>Username</th>
+                        <th>Password</th><th>IPaddress</th>
+                        <th>Time</th><th>Status</th><th>ModeOfPlay</th>
+                        <th>BlockStatus</th><th style="width:150px">Action</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% if widget['attack'] %}
+                        {% for attack in widget['attack'] %}
+                        <tr>
+                            <td>{{loop.index}}</td>
+                            <td>{{ attack.username }}</td>
+                            <td>{{ attack.password }}</td>
+                            <td>{{ attack.ipaddress }}</td>
+                            <td>{{ attack.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                            <td>{{ attack.status }}</td>
+                            <td>{% if attack.mode == 0 %}Based on Model
+                            {% else %}Based on Attack {% endif %}
+                            </td>
+                            <td>
+                                {% if attack.status == '1' or attack.status == '2' %}
+                                    <span class="label label-danger">Blocked</span>
+                                {% else %}
+                                    <span class="label label-success">Not Block</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attack.status == '1' or attack.status == '2' %}
+                                    <span class="btn hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0');"
+                                    title="Unblock"><i class="fa fa-unlock"></i></span>
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0','d');"
+                                    title="Delete"><i class="fa fa-trash"></i></span>
+                                {% else %}
+                                    <span class="btn pink hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2');"
+                                    title="Block"><i class="fa fa-lock"></i></span>
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2','d');"
+                                    title="Delete"><i class="fa fa-trash"></i></span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="settingModal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="margin-top: 20vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Change Model Settings</b>
+            </div>
+            <div class="modal-body">
+                <form class="w3-margin-top row" method="post" id="settingFrm">
+                    <div class="form-group col-md-6">
+                        <label>No of Attempt Failed: </label>
+                        <input type="number" name="noOfAttemptFailed" class="form-control" min="1"
+                               placeholder="Enter No of Attempt Failed" value="{{widget['setting'].noOfAttemptFailed or 5}}" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Time Interval (s): </label>
+                        <input type="number" name="timeInterval" class="form-control" placeholder="Enter Time Interval"
+                               value="{{widget['setting'].timeInterval or 5}}" min="1" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Mode of Play: </label>
+                        <select class="form-control" name="modeOfPlay" required>
+                            <option value="">Select</option>
+                            <option value="0" {% if widget['setting'].modeOfPlay==0 %}selected{% endif %}>Based on Model</option>
+                            <option value="1" {% if widget['setting'].modeOfPlay==1 %}selected{% endif %}>Based on Attacker</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Report Time: </label>
+                        <select class="form-control" name="reportTime" required>
+                            <option value="">Select</option>
+                            <option value="0" {% if widget['setting'].reportTime=='0' %}selected{% endif %}>Daily</option>
+                            <option value="1" {% if widget['setting'].reportTime=='1' %}selected{% endif %}>Weekly</option>
+                            <option value="2" {% if widget['setting'].reportTime=='2' %}selected{% endif %}>Monthly</option>
+                            <option value="3" {% if widget['setting'].reportTime=='3' %}selected{% endif %}>Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-12">
+                        <label>Email Response: </label>
+                        <input type="email" class="form-control" name="emailResponse" placeholder="Enter Email Response"
+                              value="{{widget['setting'].emailResponse or ''}}" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="changeSettings()">Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="questionModal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="margin-top: 20vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Create/Update Question</b>
+            </div>
+            <div class="modal-body">
+                <form class="w3-margin-top row" method="post" id="questionFrm">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label>Select Question: </label>
+                            <select class="form-control" name="question" required>
+                                <option value="">Select</option>
+                                {% for j in widget['bio_field'] %}
+                                    <option value="{{j}}">{{j}}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary pull-right" type="button" onclick="addQ();">Add</button>
+                        </div><div class="clearfix"></div><hr>
+                        <div class="list-group" id="data">
+                        {% if widget['question'] %}
+                        <a class="list-group-item grey lighten-3"><b>Available Question(s):</b></a>
+                            {% for q in widget['question'] %}
+                            <a class="list-group-item" href="#">{{q.question}}
+                            <span class="badge red white-text" title="Delete" onclick="addQ('{{q.id}}');">&times;</span>
+                            </a>
+                            {% endfor %}
+                        {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer hidden">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="profileModal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="margin-top: 20vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Update Profile</b>
+            </div>
+            <div class="modal-body">
+                <form class="w3-margin-top row" method="post" id="profileFrm">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label>Username: </label>
+                            <input type="text" name="username" value="{{admin.username}}" class="form-control" placeholder="Enter username"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number: </label>
+                            <input type="number" name="contact" value="{{admin.contact}}" class="form-control" placeholder="Enter Phone Number"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email: </label>
+                            <input type="email" class="form-control" name="email" value="{{admin.email}}" placeholder="Enter Email" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="changeProfile()">Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="passwordModal" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content" style="margin-top: 20vh;">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal" aria-hidden="true">x</button>
+                <b class="h3">Update Password</b>
+            </div>
+            <div class="modal-body">
+                <form class="w3-margin-top row" method="post" id="changePassFrm">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label>Old Password: </label>
+                            <input type="password" name="opass" class="form-control" placeholder="Enter Old Password"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label>New Password: </label>
+                            <input type="password" name="npass" class="form-control" placeholder="Enter New Password"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm Password: </label>
+                            <input type="password" name="cpass" class="form-control"
+                                   placeholder="Enter Confirm Password" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="changePass()">Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<nav class="navbar-fixed-top">
+    <div class="nav-wrap">
+        <a href="{{url_for('admin_')}}" class="brand-logo" title="Security Model">
+            <i class="fa fa fa-lock"></i>
+            S-Model</a>
+        <a href="{{url_for('admin_')}}" class="brand-logo mini" title="Security Model">
+            <i class="fa fa fa-lock"></i>
+        </a>
+        <a href="#mobile-demo" data-activates="mobile-demo" class="button-collapse">
+            <i class="fa fa-navicon"></i>
+        </a>
+        <a href="#" data-activates="mobile-demo" id="toggle" class="navbar-toggler">
+            <i class="fa fa-navicon"></i>
+        </a>
+
+        <div class="navbar-search">
+            <form class="pull-left" action="#" style="margin-left: 40px">
+                <div class="input-field" style="position: relative">
+                    <label style="position: absolute; margin-left: 10px;" class="black-text">
+                        <i class="fa fa-search black-text"></i>
+                    </label>
+                    <input type="text" placeholder="Search projects" class="form-control grey lighten-4"
+                           style="display: inline-block; width: auto; font-size: 1rem" required>
+                </div>
+            </form>
+        </div>
+        <ul class="right navbar-navs">
+            <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                    <i class="fa fa-user-secret"></i>
+                </a>
+                <ul role="menu" class="dropdown-menu dropdown-menu-right">
+                    <li><a href="#">Settings</a></li>
+                    <li><a href="">Update Profile</a></li>
+                    <li><a href="#">Update Password</a></li>
+                </ul>
+            </li>
+            <li><a href="#">
+                <i class="fa fa-envelope"></i>
+            </a></li>
+            <li><a href="{{url_for('admin_logout')}}">
+                <i class="fa fa-power-off"></i>
+            </a></li>
+        </ul>
+    </div>
+</nav>
+<main class="white">
+    <ul class="side-nav a-hide-on-large-only" id="mobile-demo">
+        <li class="text-center grey lighten-4 h1 side-nav-media" style="margin: 0">
+            <br>
+               <span class="fa-stack social-icon">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa fa-user-secret fa-stack-1x fa-inverse over-blue-text"></i>
+                </span>
+            <p class="h4 text-bold truncate">Hi! {{admin.username}}</p>
+            <br>
+        </li>
+        <li class="">
+            <a href="{{url_for('admin_')}}">
+                <span class="menu-title">Dashboard</span>
+                <i class="fa fa-dashboard menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#settingModal">
+                <span class="menu-title">Settings</span>
+                <i class="fa fa-cogs menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#questionModal">
+                <span class="menu-title">Questions</span>
+                <i class="fa fa-question menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#profileModal">
+                <span class="menu-title">Update Profile</span>
+                <i class="fa fa-edit menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#passwordModal">
+                <span class="menu-title">Update Password</span>
+                <i class="fa fa-edit menu-icon"></i>
+            </a>
+        </li>
+        <li class="hidden">
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#logModal">
+                <span class="menu-title">Logs</span>
+                <i class="fa fa-table menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a data-toggle="collapse" href="#ui-basic" class="dropdown collapsed">
+                <span class="menu-title">Logs</span>
+                <i class="fa fa-table menu-icon"></i>
+            </a>
+            <div class="collapse" id="ui-basic">
+                <ul class="nav sub-menu">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-toggle="modal" data-backdrop="static" data-target="#logModal">Login Logs</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-toggle="modal" data-backdrop="static" data-target="#log1Modal">Classification</a>
+                    </li>
+                </ul>
+            </div>
+        </li>
+        <li>
+            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#reportModal">
+                <span class="menu-title">Report</span>
+                <i class="fa fa-list menu-icon"></i>
+            </a>
+        </li>
+        <li>
+            <a href="{{url_for('admin_logout')}}">
+                <span class="menu-title">Logout</span>
+                <i class="fa fa-sign-out menu-icon"></i>
+            </a>
+        </li>
+    </ul>
+    <div class="main-panel grey lighten-5">
+    {% block content %}{% endblock %}
+    </div>
+</main>
+{% endif %}
+<script>
+    $(window).ready(function(){
+        $(".loading").fadeOut("slow");
+    });
+    $(document).ready(function () {
+        $('#oLogin').click();
+        $(".button-collapse").sideNav();
+        $('#logs, #reports, #log1').DataTable();
+        $('#logs_length select').addClass('filter-input');
+        $('#logs_filter input').addClass('filter-input');
+        $('#logs_wrapper, #reports_wrapper, #log1_wrapper').addClass('table-responsive');
+        $(document).ready(function () {
+            var dd = new Date();
+            $('#copyYear').text(dd.getFullYear());
+        })
+    });
+    $("#toggle").on("click", function () {
+        $("body").toggleClass("open");
+        $(".collapse").removeClass("in");
+    });
+    var nav = document.getElementById("sidebar");
+    $(window).on("click", function (e) {
+        if (e.target == nav) {
+//            $("body").removeClass("open");
+        }
+    });
+    $(document).on('mouseenter mouseleave', '.side-nav li', function (ev) {
+        var body = $('body');
+        var sidebarIconOnly = body.hasClass("open");
+        if (!('ontouchstart' in document.documentElement)) {
+            if (sidebarIconOnly) {
+                var $menuItem = $(this);
+                if (ev.type === 'mouseenter') {
+                    $(".collapse").removeClass("in");
+                    $menuItem.addClass('hover-open');
+                } else {
+                    $menuItem.removeClass('hover-open');
+//                    $(".collapse").removeClass("in");
+                }
+            }
+        }
+    });
+    function changePass(){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'changePassFrm=1&'+$('#changePassFrm').serialize(),
+        beforeSend: function() {
+            $(".loading").show();
+        },
+        success: function (res) {
+            $(".loading").fadeOut("slow");
+            if(res){
+                Materialize.toast(res[0], 5000);
+                setTimeout(function () {window.location.reload();}, 1000);
+            }
+        }
+    })
+    }
+    function changeProfile(){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'profileFrm=1&'+$('#profileFrm').serialize(),
+        beforeSend: function() {
+            $(".loading").show();
+        },
+        success: function (res) {
+            $(".loading").fadeOut("slow");
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success') setTimeout(function () {window.location.reload();}, 1000);
+            }
+        }
+    })
+    }
+    function changeSettings(){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'settingFrm=1&'+$('#settingFrm').serialize(),
+        beforeSend: function() {
+            $(".loading").show();
+        },
+        success: function (res) {
+            $(".loading").fadeOut("slow");
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success') setTimeout(function () {window.location.reload();}, 1000);
+            }
+        }
+    })
+    }
+    function BorU(id, status, action=''){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'BorU=1&ipaddress='+id+'&status='+status+'&action='+action,
+        beforeSend: function() {
+            $(".loading").show();
+        },
+        success: function (res) {
+            $(".loading").fadeOut("slow");
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success') setTimeout(function () {window.location.reload();}, 1000);
+            }
+        }
+    });
+    }
+
+    function addQ(id='add'){
+        $.ajax({
+        url:'/admin/action/', method:'post', data: 'questionFrm=1&id='+id+'&'+$('#questionFrm').serialize(),
+        beforeSend: function() {
+            $(".loading").show();
+        },
+        success: function (res) {
+            $(".loading").fadeOut("slow");
+            if(res){
+                Materialize.toast(res[0], 5000);
+                if(res[1]=='success') {
+                    setTimeout(function () {window.location.reload();}, 1000);
+                    // $("#data").load('/admin#data');
+                }
+            }
+        }
+    });
+    }
+</script>
+    {% block script %}{% endblock %}
+</body>
+</html>

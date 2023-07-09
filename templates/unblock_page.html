@@ -1,0 +1,60 @@
+{% extends 'layout.html' %}
+{% block title %} Security Model | Unblock {% endblock %}
+{% block content %}
+        <div class="container">
+            <div class="row w3-margin-top w3-padding-top-64">
+                <div class="col-md-4 col-md-push-4">
+                    <div class="alert alert-danger fade in text-justify" role="alert"><i class="fa fa-warning"></i>
+                        <b class="w3-large">Error: You are not allow to visit this page</b>
+                    </div>
+                    <div class="panel panel-default w3-round-xlarge w3-card">
+                        <div class="panel-body">
+                            <a href="/login/"><i class="fa fa-close"></i></a>
+                            {% if check_ip and admin %}
+                            {% if check_ip == '2' %}
+                            <p>Use one of the following button to contact admin to resolve this issue:</p>
+                            <a class="btn btn-block text-bold w3-round-xlarge w3-teal" target="_blank" href="https://wa.me/+234{{admin.contact}}?text=Hi, type your message here">
+                                <i class="fa fa-whatsapp"></i> +234{{admin.contact}}
+                            </a>
+                            <a class="btn btn-block text-bold w3-round-xlarge w3-deep-orange" target="_blank" href="mailto:{{admin.email}}?body=Hi, type your message here">
+                                <i class="fa fa-envelope-o"></i> {{admin.email}}
+                            </a>
+                            <a class="btn btn-block text-bold w3-round-xlarge w3-green" target="_blank" href="tel:+234{{admin.contact}}">
+                                <i class="fa fa-phone"></i> +234{{admin.contact}}
+                            </a>
+                            {% else %}
+                            <form class="w3-margin-top col-md-12" method="post">
+                                <h3>Fill the below form please:</h3><br>
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                {% if messages %}
+                                {% for cat, message in messages %}
+                                <div class="alert alert-{{cat[0]}} fade in" role="alert">
+                                    <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'></i>
+                                    <b class="h4 text-bold">{{message}}</b></div>
+                                {% endfor %}
+                                {% endif %}
+                                {% endwith %}
+
+                                {% if question %}
+                                {% for q in question %}
+                                <div class="form-group">
+                                    <label>Enter your {{q.question}}:</label>
+                                    <input type="{% if q.question in 'contact' %}number{% else %}email{% endif %}" class="form-control w3-round-xlarge" name="{{q.question}}" required>
+                                </div>
+                                    {% endfor %}
+                                {% endif %}
+                                <div class="form-group">
+                                    <button class="btn btn-primary btn-block text-bold w3-round-xlarge" name="answer">Submit</button>
+                                </div>
+                            {% endif %}
+                            {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                    <div class="text-center">&copy; Security Model <span id="copyYear"></span></div>
+                </div>
+            </div>
+        </div>
+{% endblock %}
+{% block script %}
+{% endblock %}

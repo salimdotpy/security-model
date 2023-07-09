@@ -127,6 +127,32 @@ class Log(db.Model):
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
 
+class Transaction(db.Model):
+
+    __tablename__ = "transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(128))
+    password = db.Column(db.String(128))
+    ipaddress = db.Column(db.String(128))
+    time = db.Column(db.DateTime, default=datetime.now)
+    status = db.Column(db.String(20))
+    mode = db.Column(db.Integer, default=1)
+
+class Question(db.Model):
+
+    __tablename__ = "questions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    question = db.Column(db.String(128))
+    date = db.Column(db.DateTime, default=datetime.now)
+    def to_dict(self):
+        return {
+            'id':self.id,
+            'question': self.question,
+            'date': self.date
+        }
+
 class Classification(db.Model):
 
     __tablename__ = "classifications"
@@ -137,6 +163,7 @@ class Classification(db.Model):
     ipaddress = db.Column(db.String(128))
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
+    mode = db.Column(db.Integer, default=1)
 
 class AttackClassifier:
     def __init__(self):
@@ -217,7 +244,7 @@ def modelClass():
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'Attack Report | '+str(datetime.now()).split('.')[0], 0, 1, 'C')
+        self.cell(0, 10, 'Cyber Prevention Report | '+str(datetime.now()).split('.')[0], 0, 1, 'C')
 
     def footer(self):
         self.set_y(-15)
@@ -327,7 +354,7 @@ def stop_scheduler():
         return "Scheduler is not running"
 
 def check_new_ip(ip):
-    ip = Classification.query.filter_by(ipaddress=ip).order_by(Classification.id.desc()).first()
+    ip = Transaction.query.filter_by(ipaddress=ip).order_by(Transaction.id.desc()).first()
     try: return ip.status
     except: return False
 
@@ -364,53 +391,101 @@ def view():
         return render_template("new_one.html")
     return redirect(url_for('index'))
 
+@app.route("/askquestion/", methods=["GET", "POST"])
+def askquestion():
+    check_ip = check_new_ip(request.headers['X-Real-IP'])
+    admin = Admin.query.get(1)
+    question = Question.query.all()
+    if str(check_ip) not in '12':
+        return redirect(url_for('login'))
+    if request.method == "POST" and 'answer' in request.form:
+        # Create variables for easy access
+        question = Question.query.all()
+        stmt = "SELECT * FROM users WHERE "
+        i = 0
+        for qs in question:
+            pre = ' AND ' if i > 0 else ''
+            stmt += pre + qs.question + " = '" + request.form[str(qs.question)] + "'"
+            i += 1
+        get = db.session.execute(stmt).first()
+        if get is None:
+            flash('Incorrect details supllied', ('danger', 'warning'))
+            return redirect(url_for('askquestion'))
+        else:
+            rows = db.session.query(Transaction).filter(Transaction.ipaddress == request.headers['X-Real-IP'])
+            # rows.update({Transaction.status: 0, Transaction.time:datetime.now()}, synchronize_session='fetch')
+            rows.delete()
+            db.session.commit()
+            flash('Your account is now activated successfully!', ('success', 'check'))
+            return redirect(url_for('login'))
+    return render_template("unblock_page.html", check_ip=check_ip, admin=admin, question=question)
+
 # Create an instance of the AttackClassifier
 classifier = AttackClassifier()
 @app.route("/login/", methods=["GET", "POST"])
 def login():
-    check_ip = check_new_ip(request.headers['X-Real-IP'])
     setting = Setting.query.get(1)
+    check_ip = check_new_ip(request.headers['X-Real-IP'])
     classifier.timeInterval = setting.timeInterval
     classifier.noOfAttemptFailed = setting.noOfAttemptFailed
     if request.method == "GET":
-        if check_ip =='1' or check_ip =='2':
-            return "<h1 style='text-align:center; font-size:50px'>Error(419): You are not allow to visit this page</h1>"
+        if str(check_ip) =='1' or str(check_ip) =='2':
+            return redirect(url_for('askquestion'))
         return render_template("login_page.html")
 
     if check_ip =='1' or check_ip =='2':
-        return "<h1 style='text-align:center; font-size:50px'>Error(419): You are not allow to visit this page</h1>"
+        return redirect(url_for('askquestion'))
     # Extract necessary information from the request
     username = request.form["username"]
     password = request.form["password"]
-    ipaddress = request.headers['X-Real-IP'] or request.remote_addr
+    ipaddress = request.headers['X-Real-IP']
     user = load_user(username)
+    makelog = Log(username=username, password=password, ipaddress=ipaddress, status=0)
     if user is None or not user.check_password(password):
-        makelog = Log(username=username, password=password, ipaddress=ipaddress, status=1)
+        makelog.status = 1
         db.session.add(makelog)
         db.session.commit()
         # Create a new Classification entry
-        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status='')
-        # Perform attack classification
-        attack_category = classifier.classify_attack(ipaddress)
-
-        if attack_category == 0:
-            classifier.successful_logins.add(ipaddress)
-        elif attack_category == 3:
-            pass
-            #classifier.failed_logins.append(datetime.now())
-            #print(f'cat={attack_category} fail={len(classifier.failed_logins)} att={classifier.noOfAttemptFailed}')
-        else:
-            # Update the status of the Log entry based on the attack category
-            new_clfctn.status = str(attack_category)
-            # Add the new Log entry to the database
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        if setting.modeOfPlay==0:
+            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress), str(modelClass()[1])
+            if get_trans:
+                get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
+                Transaction.time:datetime.now()}, synchronize_session='fetch')
+                db.session.commit()
+            else:
+                trans.status, trans.mode = status, setting.modeOfPlay
+                db.session.add(trans)
+                db.session.commit()
+            new_clfctn.status, new_clfctn.mode = status, setting.modeOfPlay
+            # Add the new classification entry to the database
             db.session.add(new_clfctn)
             db.session.commit()
-            #print(f'cat={attack_category} fail={len(classifier.failed_logins)} att={classifier.noOfAttemptFailed}')
+        else:
+            # Perform attack classification
+            attack_category = classifier.classify_attack(ipaddress)
+            if attack_category == 0:
+                classifier.successful_logins.add(ipaddress)
+            elif attack_category == 3:
+                pass
+            else:
+                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
+                if get_trans:
+                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
+                    Transaction.time:datetime.now()}, synchronize_session='fetch')
+                    db.session.commit()
+                else:
+                    trans.status, trans.mode = str(attack_category), setting.modeOfPlay
+                    db.session.add(trans)
+                    db.session.commit()
+                new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
+                # Add the new classification entry to the database
+                db.session.add(new_clfctn)
+                db.session.commit()
         flash('Incorrect username or password', ('danger', 'warning'))
         return redirect(url_for('login'))
-
     login_user(user)
-    makelog = Log(username=username, password=password, ipaddress=ipaddress, status=0)
     db.session.add(makelog)
     db.session.commit()
     return redirect(url_for('index'))
@@ -460,7 +535,14 @@ def admin_():
     if 'admin' in session:
         admin = session['admin']
         widget['setting'] = Setting.query.get(1)
-        widget['attack'] = Classification.query.all() or False
+        widget['attack'] = Transaction.query.all()
+        widget['attack_count'] = len(Classification.query.all())
+        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0').all())
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.time>=(datetime.now() - timedelta(days=1))).all())
+        widget['today_count'] = len(Classification.query.filter(Classification.time>=(datetime.now() - timedelta(days=1))).all()) or 0
+        widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
+        widget['question'] = Question.query.all()
+        widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]
 
     if request.method == "POST" and 'loginBtn' in request.form:
         # Create variables for easy access
@@ -473,7 +555,8 @@ def admin_():
         elif admins is None or not admins.check_password(password):
             msg = ['Invalid Credential', 'error']
         if msg != False:
-            return render_template("admin_page.html", admin=admin, msg=msg)
+            flash(msg[0], ('error', 'warning'))
+            return redirect(url_for('admin_'))
         session['admin'] = admins.to_dict()
         flash('You\'ve successfully logged in!', ('success', 'check'))
         return redirect(url_for('admin_'))
@@ -483,6 +566,7 @@ def admin_():
 def admin_settings():
     msg = False
     if 'admin' in session:
+        admin = session['admin']
         if request.method == "POST" and 'settingFrm' in request.form:
             # Create variables for easy access
             noOfAttemptFailed = request.form['noOfAttemptFailed']
@@ -510,28 +594,87 @@ def admin_settings():
                 msg = ['Settings updated successfully!', 'success']
             return msg
 
+        if request.method == "POST" and 'profileFrm' in request.form:
+            # Create variables for easy access
+            username = request.form['username']
+            contact = request.form['contact']
+            email = request.form['email']
+            profile = Admin.query.get(admin['id'])
+            #checkEmail = Admin.query.filter_by(email=email).first()
+            #checkPhone = Admin.query.filter_by(contact=contact).first()
+            if not username or not contact or not email or not profile:
+                msg = ['Please fill out the form!', 'error']
+            profile.username = username
+            profile.contact = contact
+            profile.email = email
+            db.session.commit()
+            msg = ['Profile updated successfully!', 'success']
+            admins = Admin.query.filter_by(id=admin['id']).first()
+            session['admin'] = admins.to_dict()
+            return msg
+
+        if request.method == "POST" and 'changePassFrm' in request.form:
+            # Create variables for easy access
+            opass = request.form['opass']
+            npass = request.form['npass']
+            cpass = request.form['cpass']
+            profile = Admin.query.get(admin['id'])
+            if not opass or not npass or not cpass:
+                msg = ['Please fill out the form!', 'error']
+            elif npass != cpass:
+                msg = ['Two password does not match!', 'error']
+            elif not profile.check_password(opass):
+                msg = ['Old password does not match!', 'error']
+            password = generate_password_hash(npass)
+            profile.password = password
+            db.session.commit()
+            msg = ['Password updated successfully!', 'success']
+            admins = Admin.query.filter_by(id=admin['id']).first()
+            session['admin'] = admins.to_dict()
+            return msg
+
         if request.method == "POST" and 'BorU' in request.form:
             # Create variables for easy access
             msg=''
             ipaddress = request.form['ipaddress']
             status = request.form['status']
             action = request.form['action']
-            attack = Classification.query.filter_by(ipaddress=ipaddress).all()
+            attack = Transaction.query.filter_by(ipaddress=ipaddress).all()
             if not attack:
                 msg = ['An error occur!', 'error']
             else:
                 if action=='d':
-                    rows = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+                    rows = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
                     rows.delete()
                     db.session.commit()
                     msg = ['Attack log deleted successfully!', 'success']
                 else:
-                    # Example of updating multiple rows
-                    rows = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
-                    rows.update({Classification.status: status, Classification.time:datetime.now()}, synchronize_session='fetch')
+                    rows = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
+                    rows.update({Transaction.status: status, Transaction.time:datetime.now()}, synchronize_session='fetch')
                     db.session.commit()
                     msg = ['Attack log updated successfully!', 'success']
             return msg
+        if request.method == "POST" and 'questionFrm' in request.form:
+            # Create variables for easy access
+            # allq = Question.query.all()
+            id = request.form['id']
+            q = request.form['question']
+            if id == 'add':
+                if not q:
+                    return ['Please select question!', 'error']
+                questions = Question.query.filter_by(question=q).first()
+                if questions:
+                    return ['This question already added!', 'error']
+                question = Question(question=q)
+                db.session.add(question)
+                db.session.commit()
+                return ['Question added successfully!', 'success']
+            else:
+                rows = db.session.query(Question).filter(Question.id == id)
+                rows.delete()
+                db.session.commit()
+                return ['Question deleted successfully!', 'success']
+
     return redirect(url_for('admin_'))
 
 @app.route("/admin/logout/", methods=["GET", "POST"])
