@@ -13,6 +13,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from flask_migrate import Migrate
 from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin, current_user
+from all_api import my_api
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import deque
 from datetime import datetime, timedelta, date
@@ -358,7 +359,10 @@ def check_new_ip(ip):
     ip = Transaction.query.filter_by(ipaddress=ip).order_by(Transaction.id.desc()).first()
     try: return ip.status
     except: return False
-
+# all code for api start here
+# Register the routes from routes.py
+app.register_blueprint(my_api)
+# and end here
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "GET":
