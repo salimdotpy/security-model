@@ -10,11 +10,12 @@ from email.mime.application import MIMEApplication
 
 from flask import Flask, redirect, render_template, request, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_migrate import Migrate
 from flask_login import login_required, login_user, LoginManager, logout_user, UserMixin, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import re, numpy as np
 
 app = Flask(__name__)
@@ -449,14 +450,14 @@ def login():
         new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status='', mode='')
         trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
         if setting.modeOfPlay==0:
-            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress), str(modelClass()[1])
-            if get_trans:
-                get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
-                Transaction.time:datetime.now()}, synchronize_session='fetch')
+            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first(), str(modelClass()[1])
+            if not get_trans:
+                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay)
+                db.session.add(trans)
                 db.session.commit()
             else:
-                trans.status, trans.mode = status, setting.modeOfPlay
-                db.session.add(trans)
+                get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
+                Transaction.time:datetime.now()}, synchronize_session='fetch')
                 db.session.commit()
             new_clfctn.status, new_clfctn.mode = status, setting.modeOfPlay
             # Add the new classification entry to the database
@@ -470,14 +471,14 @@ def login():
             elif attack_category == 3:
                 pass
             else:
-                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
-                if get_trans:
-                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
-                    Transaction.time:datetime.now()}, synchronize_session='fetch')
+                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                if not get_trans:
+                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=str(attack_category), mode=setting.modeOfPlay)
+                    db.session.add(trans)
                     db.session.commit()
                 else:
-                    trans.status, trans.mode = str(attack_category), setting.modeOfPlay
-                    db.session.add(trans)
+                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: str(attack_category),
+                    Transaction.time:datetime.now()}, synchronize_session='fetch')
                     db.session.commit()
                 new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
                 # Add the new classification entry to the database
@@ -538,8 +539,8 @@ def admin_():
         widget['attack'] = Transaction.query.all()
         widget['attack_count'] = len(Classification.query.all())
         widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0').all())
-        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.time>=(datetime.now() - timedelta(days=1))).all())
-        widget['today_count'] = len(Classification.query.filter(Classification.time>=(datetime.now() - timedelta(days=1))).all()) or 0
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today()).all())
+        widget['today_count'] = len(Classification.query.filter(func.DATE(Classification.time) == date.today()).all()) or 0
         widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
         widget['question'] = Question.query.all()
         widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]

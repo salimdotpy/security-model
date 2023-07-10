@@ -226,12 +226,12 @@
                                 {% if attack.status == '1' or attack.status == '2' %}
                                     <span class="btn hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0');"
                                     title="Unblock"><i class="fa fa-unlock"></i></span>
-                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0','d');"
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','0','d'):'';"
                                     title="Delete"><i class="fa fa-trash"></i></span>
                                 {% else %}
                                     <span class="btn pink hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2');"
                                     title="Block"><i class="fa fa-lock"></i></span>
-                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2','d');"
+                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','2','d'):'';"
                                     title="Delete"><i class="fa fa-trash"></i></span>
                                 {% endif %}
                             </td>
