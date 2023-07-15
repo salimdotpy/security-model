@@ -4,8 +4,8 @@
     <title>{% block title %}{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="../static/css/materialize.min.css"/>
-    <link rel="stylesheet" href="../static/css/new-style.css"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/materialize.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/new-style.css') }}"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" integrity="sha512-XJ3ntWHl40opEiE+6dGhfK9NAKOCELrpjiBRQKtu6uJf9Pli8XY+Hikp7rlFzY4ElLSFtzjx9GGgHql7PLSeog==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
@@ -529,6 +529,9 @@
             </a>
         </li>
         <li>
+            <a href="/admin/report/all-user"><span class="menu-title">Users</span><i class="fa fa-user menu-icon"></i></a>
+        </li>
+        <li>
             <a href="{{url_for('admin_logout')}}">
                 <span class="menu-title">Logout</span>
                 <i class="fa fa-sign-out menu-icon"></i>
@@ -547,10 +550,10 @@
     $(document).ready(function () {
         $('#oLogin').click();
         $(".button-collapse").sideNav();
-        $('#logs, #reports, #log1').DataTable();
+        $('#logs, #reports, #log1, #allreports').DataTable();
         $('#logs_length select').addClass('filter-input');
         $('#logs_filter input').addClass('filter-input');
-        $('#logs_wrapper, #reports_wrapper, #log1_wrapper').addClass('table-responsive');
+        $('#logs_wrapper, #reports_wrapper, #log1_wrapper, #allreports_wrapper').addClass('table-responsive');
         $(document).ready(function () {
             var dd = new Date();
             $('#copyYear').text(dd.getFullYear());

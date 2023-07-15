@@ -1,0 +1,79 @@
+{% extends 'master.html' %}
+{% block title %} Security Model | Reports {% endblock %}
+{% block content %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for cat, message in messages %}
+        {% if cat[0]=='success' %}
+        <div class="alert alert-{{cat[0]}} fade in" role="alert">
+            <a href="#" class="close" data-dismiss="alert">&times;</a><i class='fa fa-fw fa-{{cat[1]}}'></i>
+            <b class="h4 text-bold">{{message}}</b></div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <div class="row">
+            <div class="col-md-12">
+                <div class="panel panel-info">
+                    <div class="panel-heading">{{title}}</div>
+                    <div class="panel-body">
+                        {% if widget['user'] %}
+                        <table id="allreports" class="display" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>S/N</th><th>Username</th>
+                                <th>Phone Number</th><th>Email</th><th>Date</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% if logs %}
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{loop.index}}</td>
+                                    <td>{{ log.username }}</td>
+                                    <td>{{ log.contact }}</td>
+                                    <td>{{ log.email }}</td>
+                                    <td>{{ log.date.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            {% endif %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <table id="allreports" class="display" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>S/N</th><th>username</th><th>password</th>
+                                <th>IPaddress</th><th style="width:200px">time</th>
+                                <th>status</th><th>ModeOfPlay</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% if logs %}
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{loop.index}}</td>
+                                    <td>{{ log.username }}</td>
+                                    <td>{{ log.password }}</td>
+                                    <td>{{ log.ipaddress }}</td>
+                                    <td>{{ log.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
+                                    <td>{{ log.status }}</td>
+                                    <td>{% if log.mode == 0 %}Based on Model
+                                    {% else %}Based on Attack {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            {% endif %}
+                            </tbody>
+                        </table>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer>
+
+        </footer>
+{% endblock %}
+{% block script %}{% endblock %}

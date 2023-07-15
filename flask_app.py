@@ -19,7 +19,7 @@ from collections import deque
 from datetime import datetime, timedelta, date
 import re, numpy as np
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.config["DEBUG"] = True
 app.config["threaded"] = True
 scheduler = BackgroundScheduler()
@@ -169,29 +169,26 @@ class Classification(db.Model):
 
 class AttackClassifier:
     def __init__(self):
-        #try:
         setting = Setting.query.get(1)
         self.timeInterval = setting.timeInterval
         self.noOfAttemptFailed = setting.noOfAttemptFailed
-        # except:
-        #     self.timeInterval = 10
-        #     self.noOfAttemptFailed = 2
         self.successful_logins = set()
         self.failed_logins = deque()
 
-    def classify_attack(self, ipaddress):
+    def classify_attack(self, ip):
         current_time = datetime.now()
         self.remove_old_failed_logins(current_time)
         cnd = self.count_failed_logins() >= self.noOfAttemptFailed
-        if ipaddress in self.successful_logins:
+        low = Classification.query.filter(Classification.ipaddress ==ip).order_by(Classification.id.desc())
+        if ip in self.successful_logins:
             return 0
         self.failed_logins.append(current_time)
         if cnd:
             return 2
-
-        if self.is_interval_less():
+        elif len(low.all())>=self.noOfAttemptFailed:
             return 1
-
+        elif str(low.first().status) in "12":
+            return low.first().status
         return 3
 
     def remove_old_failed_logins(self, current_time):
@@ -376,15 +373,11 @@ def index():
         db.session.commit()
     return redirect(url_for('index'))
 
-@app.route("/ip/", methods=["GET", "POST"])
-def ips():
-    return f"(real = {request.headers['X-Real-IP']}, add = {request.remote_addr})"
-
-@app.route('/start_scheduler', methods=['GET'])
+@app.route('/api/start_scheduler', methods=['GET'])
 def start_scheduler_endpoint():
     return start_scheduler()
 
-@app.route('/stop_scheduler', methods=['GET'])
+@app.route('/api/stop_scheduler', methods=['GET'])
 def stop_scheduler_endpoint():
     return stop_scheduler()
 
@@ -418,8 +411,9 @@ def askquestion():
             return redirect(url_for('askquestion'))
         else:
             rows = db.session.query(Transaction).filter(Transaction.ipaddress == request.headers['X-Real-IP'])
+            rows1 = db.session.query(Classification).filter(Classification.ipaddress == request.headers['X-Real-IP'])
             # rows.update({Transaction.status: 0, Transaction.time:datetime.now()}, synchronize_session='fetch')
-            rows.delete()
+            rows.delete(); rows1.delete()
             db.session.commit()
             flash('Your account is now activated successfully!', ('success', 'check'))
             return redirect(url_for('login'))
@@ -451,7 +445,7 @@ def login():
         db.session.add(makelog)
         db.session.commit()
         # Create a new Classification entry
-        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay)
         trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
         if setting.modeOfPlay==0:
             get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first(), str(modelClass()[1])
@@ -486,14 +480,82 @@ def login():
                     db.session.commit()
                 new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
                 # Add the new classification entry to the database
-                db.session.add(new_clfctn)
-                db.session.commit()
+                db.session.add(new_clfctn); db.session.commit()
+        # Add the new classification entry to the database
+        db.session.add(new_clfctn); db.session.commit()
         flash('Incorrect username or password', ('danger', 'warning'))
         return redirect(url_for('login'))
     login_user(user)
     db.session.add(makelog)
     db.session.commit()
     return redirect(url_for('index'))
+
+@app.route("/api/login", methods=['GET', 'POST'])
+def api_login():
+    username = request.args.get("username")
+    password = request.args.get("password")
+    ipaddress = request.args.get('ipaddress')
+    status = request.args.get('status')
+    setting = Setting.query.get(1); attack = classifier.classify_attack(ipaddress)
+    question1, question2 = Question.query.first().question, db.session.execute("select * from questions order by id desc").first().question
+    check_ip = check_new_ip(ipaddress)
+    msg = {'status': str(attack), 'username': username, 'password': password, 'ipaddress': ipaddress,
+    'question1': '', 'question2': '', 'defence': str(check_ip), 'modeofplay': setting.modeOfPlay}
+    if str(check_ip) =='1' or str(check_ip) =='2':
+        msg['question1'], msg['question2'] = question1, question2
+        return msg
+    classifier.timeInterval = setting.timeInterval
+    classifier.noOfAttemptFailed = setting.noOfAttemptFailed
+    makelog = Log(username=username, password=password, ipaddress=ipaddress, status=status)
+    if str(status)=='1':
+        db.session.add(makelog)
+        db.session.commit()
+        # Create a new Classification entry
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay)
+        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        if setting.modeOfPlay==0:
+            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first(), str(modelClass()[1])
+            if not get_trans:
+                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay)
+                db.session.add(trans)
+                db.session.commit()
+            else:
+                get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
+                Transaction.time:datetime.now()}, synchronize_session='fetch')
+                db.session.commit()
+            new_clfctn.status, new_clfctn.mode = status, setting.modeOfPlay
+            # Add the new classification entry to the database
+            attack_category = classifier.classify_attack(ipaddress)
+            msg['status'], msg['defence'] = str(attack_category), str(status)
+            db.session.add(new_clfctn)
+            db.session.commit()
+        else:
+            # Perform attack classification
+            attack_category = classifier.classify_attack(ipaddress)
+            if attack_category == 0:
+                classifier.successful_logins.add(ipaddress)
+            elif attack_category == 3:
+                pass
+            else:
+                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                if not get_trans:
+                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=str(attack_category), mode=setting.modeOfPlay)
+                    db.session.add(trans)
+                    db.session.commit()
+                else:
+                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: str(attack_category),
+                    Transaction.time:datetime.now()}, synchronize_session='fetch')
+                    db.session.commit()
+                new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
+                # Add the new classification entry to the database
+                db.session.add(new_clfctn); db.session.commit()
+                msg['status'], msg['defence'] = str(attack_category), str(attack_category)
+        # Add the new classification entry to the database
+        db.session.add(new_clfctn); db.session.commit()
+        return msg
+    db.session.add(makelog)
+    db.session.commit()
+    return msg
 
 @app.route("/signup/", methods=["GET", "POST"])
 def signup():
@@ -541,10 +603,11 @@ def admin_():
         admin = session['admin']
         widget['setting'] = Setting.query.get(1)
         widget['attack'] = Transaction.query.all()
-        widget['attack_count'] = len(Classification.query.all())
-        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0').all())
-        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today()).all())
-        widget['today_count'] = len(Classification.query.filter(func.DATE(Classification.time) == date.today()).all()) or 0
+        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0').all())
+        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.mode=='0').all())
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
+        Classification.mode=='0').all())
+        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all())
         widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
         widget['question'] = Question.query.all()
         widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]
@@ -650,7 +713,8 @@ def admin_settings():
             else:
                 if action=='d':
                     rows = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
-                    rows.delete()
+                    rows1 = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+                    rows.delete(); rows1.delete()
                     db.session.commit()
                     msg = ['Attack log deleted successfully!', 'success']
                 else:
@@ -680,6 +744,40 @@ def admin_settings():
                 db.session.commit()
                 return ['Question deleted successfully!', 'success']
 
+    return redirect(url_for('admin_'))
+
+@app.route("/admin/report/<title>")
+def admin_reports(title):
+    rows = admin = msg = False
+    widget = {'user':False}
+    if 'admin' in session:
+        admin = session['admin']
+        widget['setting'] = Setting.query.get(1)
+        widget['attack'] = Transaction.query.all()
+        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0').all())
+        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.mode=='0').all())
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
+        Classification.mode=='0').all())
+        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all())
+        widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
+        widget['question'] = Question.query.all()
+        widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]
+
+        if title == "today-attack":
+            rows, title = Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all(), 'Today Attack'
+        elif title == "all-attack":
+            rows, title = Classification.query.filter(Classification.status!='0').all(), 'Total Attack'
+        elif title == "today-success-attack":
+            rows, title = Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
+            Classification.mode=='0').all(), 'Today Successful Attack'
+        elif title == "all-success-attack":
+            rows, title = Classification.query.filter(Classification.status=='0', Classification.mode=='0').all(), 'Total Successful Attack'
+        elif title == "all-user":
+            rows, title = User.query.all(), 'All registered user'
+            widget['user'] = True
+        else:
+            return redirect(url_for('admin_'))
+        return render_template("reports_page.html", admin=admin, logs=rows, title=title, widget=widget, msg=msg)
     return redirect(url_for('admin_'))
 
 @app.route("/admin/logout/", methods=["GET", "POST"])
