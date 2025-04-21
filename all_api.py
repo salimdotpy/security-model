@@ -7,16 +7,6 @@ my_api = Blueprint('my_api', __name__)
 @my_api.route('/hello')
 def hello():
     return render_template('hello.html')
-# @my_api.route("/api/login", methods=["GET", "POST"])
-# def api_login():
-#     if request.method == 'GET':
-#         username = request.args.get("username")
-#         password = request.args.get("password")
-#         ipaddress = request.args.get('ipaddress')
-#         makelog = Log(username=username, password=password, ipaddress=ipaddress, status=0)
-#         db.session.add(makelog)
-#         db.session.commit()
-#     return f"(real = {request.headers['X-Real-IP']}, add = {request.remote_addr})"
 
 @my_api.route('/api/register', methods=['GET'])
 def api_register():
