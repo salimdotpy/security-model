@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
-from flask import Flask, redirect, render_template, request, url_for, session, flash
+from flask import Flask, redirect, render_template, request, url_for, session, flash, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from flask_migrate import Migrate
@@ -16,8 +16,11 @@ from flask_login import login_required, login_user, LoginManager, logout_user, U
 from all_api import my_api
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import deque
-from datetime import datetime, timedelta, date
+#from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, timezone, date
+
 import re, numpy as np
+import pytz
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.config["DEBUG"] = True
@@ -50,6 +53,10 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(128))
     password = db.Column(db.String(128))
     status = db.Column(db.String(128))
+    surname = db.Column(db.String(30), default=None)
+    gsm = db.Column(db.String(15), default=None)
+    dob = db.Column(db.String(20), default=None)
+    jambno = db.Column(db.String(20), default=None)
     date = db.Column(db.DateTime, default=datetime.now)
 
     def check_password(self, password):
@@ -139,7 +146,10 @@ class Transaction(db.Model):
     ipaddress = db.Column(db.String(128))
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
+    attack = db.Column(db.Integer, default=1)
+    defence = db.Column(db.Integer, default=1)
     mode = db.Column(db.Integer, default=1)
+    type = db.Column(db.String(50), default="Password Guessing")
 
 class Question(db.Model):
 
@@ -165,7 +175,63 @@ class Classification(db.Model):
     ipaddress = db.Column(db.String(128))
     time = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20))
+    attack = db.Column(db.Integer, default=1)
+    defence = db.Column(db.Integer, default=1)
     mode = db.Column(db.Integer, default=1)
+    type = db.Column(db.String(50), default="Password Guessing")
+
+def getDate(plus=1):
+    date, time = str(datetime.now()).split()
+    h, m, s = time.split(':')
+    h = int(h) + plus
+    time = ':'.join([str(h), m, s])
+    dt = date + ' ' + time
+    return dt
+
+class Wastebin(db.Model):
+
+    __tablename__ = "wastebins"
+
+    id = db.Column(db.Integer, primary_key=True)
+    binId = db.Column(db.String(50))
+    lon = db.Column(db.String(28))
+    lat = db.Column(db.String(28))
+    level = db.Column(db.String(50))
+    seenby = db.Column(db.Text(), default='[]')
+    date = db.Column(db.String(40), default=getDate)
+
+    def to_dict(self):
+        return {
+            'id':self.id,
+            'binId': self.binId,
+            'lon': self.lon,
+            'lat': self.lat,
+            'level': self.level,
+            'seenby': eval(self.seenby),
+            'date': self.date
+        }
+
+class binNotify(db.Model):
+
+    __tablename__ = "binnotifys"
+
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text())
+    status = db.Column(db.Boolean, nullable=False, default=False)
+    bId = db.Column(db.Integer, db.ForeignKey('wastebins.id'), nullable=True)
+    bin = db.relationship('Wastebin', foreign_keys=bId)
+    binDate = db.Column(db.String(40), nullable=True)
+    date = db.Column(db.String(40), default=datetime.now)
+    def to_dict(self):
+        return {
+            'id':self.id,
+            'text': self.text,
+            'status': self.status,
+            'bId': self.bId,
+            'bin': self.bin.to_dict(),
+            'binDate': self.binDate,
+            'date': self.date
+        }
 
 class AttackClassifier:
     def __init__(self):
@@ -179,7 +245,9 @@ class AttackClassifier:
         current_time = datetime.now()
         self.remove_old_failed_logins(current_time)
         cnd = self.count_failed_logins() >= self.noOfAttemptFailed
-        low = Classification.query.filter(Classification.ipaddress ==ip).order_by(Classification.id.desc())
+        try:
+            low = Classification.query.filter(Classification.ipaddress ==ip).order_by(Classification.id.desc())
+        except: low = None
         if ip in self.successful_logins:
             return 0
         self.failed_logins.append(current_time)
@@ -187,7 +255,7 @@ class AttackClassifier:
             return 2
         elif len(low.all())>=self.noOfAttemptFailed:
             return 1
-        elif str(low.first().status) in "12":
+        elif len(low.all()) and str(low.first().status) in "12":
             return low.first().status
         return 3
 
@@ -275,7 +343,8 @@ def generate_pdf(header, data):
     pdf = PDF()
     pdf.add_page()
     # Add the table to the PDF
-    pdf.add_table(header, data, [43, 43, 40, 45, 20])
+    pdf.add_table(header, data, [40, 43, 20, 20, 68])
+    # pdf.add_table(header, data, [43, 43, 40, 45, 20])
     # Define the file path where the PDF will be saved
     return pdf.output(dest='S')
 
@@ -303,18 +372,20 @@ def send_email(sender_email, sender_password, receiver_email, subject, body, att
 
 def schedule_email():
     setting = Setting.query.get(1)
+    report_time = ['Daily', 'Weekly', 'Monthly', 'Yearly']
     # Your login logs retrieval logic here# Define table header and data
     header = ['IP Address', 'Event Time', 'Attack', 'Defence', 'Remark']
     try:
         logs = Classification.query.all()
         data=[]; item=[]
         for log in logs:
-            remark = 0 if log.status==0 else 1
+            log.status = 'Blocked' if str(log.status) in '12' else 'Not Successful'
+            log.attack = 0 if int(log.attack)==3 else log.attack
             item.append(log.ipaddress)
             item.append(log.time)
+            item.append(log.attack)
+            item.append(log.defence)
             item.append(log.status)
-            item.append(log.status)
-            item.append(remark)
             data.append(item)
             item=[]
     except:
@@ -326,7 +397,7 @@ def schedule_email():
     sender_email = 'osenikamorudeen36@gmail.com'
     sender_password = 'pwwgffcfjnvrrcon'
     receiver_email = setting.emailResponse #"salimdotpy@gmail.com"
-    subject = setting.reportTime+' Attack Report'; body = str(datetime.now()).split('.')[0]
+    subject = report_time[int(setting.reportTime)]+' Attack Report'; body = str(datetime.now()).split('.')[0]
     body = f'Please find attached the Attack Report | {body}'
     send_email(sender_email, sender_password, receiver_email, subject, body, pdf_data)
 
@@ -337,7 +408,7 @@ def start_scheduler():
         schedule_email()
         # scheduler.add_job(schedule_email, 'interval', seconds=20, next_run_time=datetime.now() + timedelta(seconds=5))
         # scheduler.start()
-        scheduler_started = True
+        scheduler_started = False
         return "Scheduler started"
     else:
         return "Scheduler is already running"
@@ -352,14 +423,145 @@ def stop_scheduler():
     else:
         return "Scheduler is not running"
 
+def isInjection(user_text):
+    # Common SQL injection patterns to check for
+    sql_injection_patterns = [
+        r"\b(?:select|update|delete|insert|drop|alter|create|truncate|union|exec|xp_cmdshell)\b",
+        r"\b(?:\d+\s*=\s*\d+|\d+\s*>\s*\d+|\d+\s*<\s*\d+|\d+\s*['\"]+)",
+        r"(?i)(?:(?:(?:n?and|n?or)\s+(?:\d+=[^&]+))|(?:n?and|n?or)\s+\d+=\d+)",
+        r"(?i)\bexec(?:ute)?\s*\(",
+        r"\b(?:information_schema|schema_name|table_schema|column_name|table_name|tables|columns)\b",
+        r"\b(?:mysql\.)?(?:user|password)\b"
+    ]
+
+    # Check for SQL injection patterns in the user input
+    for pattern in sql_injection_patterns:
+        if re.search(pattern, user_text, re.IGNORECASE):
+            return "SQL Injection"
+    return "Password Guessing"
+
 def check_new_ip(ip):
-    ip = Transaction.query.filter_by(ipaddress=ip).order_by(Transaction.id.desc()).first()
-    try: return ip.status
+    try:
+        ip = Transaction.query.filter_by(ipaddress=ip).order_by(Transaction.id.desc()).first()
+        return ip.status
     except: return False
 # all code for api start here
 # Register the routes from routes.py
 app.register_blueprint(my_api)
-# and end here
+# and end her
+
+@app.route("/getdate")
+def dd():
+    #import pytz
+    from datetime import datetime, timedelta
+    # Nigeria is UTC+1
+    nigeria_offset = timezone(timedelta(hours=20))
+    nigeria_time = datetime.now(nigeria_offset)
+    datetime_in_Lagos = pytz.timezone('Africa/Lagos').localize(datetime.now())
+    return {'systemDate': datetime.now(), 'Date': datetime_in_Lagos, 'mine':nigeria_time}
+
+@app.route("/get-token", methods=["POST","GET"])
+def user_token():
+    return {'user_token': generate_password_hash(str(datetime.now()))}
+
+@app.route("/waste-bin", methods=["POST","GET"])
+def waste_bin():
+    if request.method == "POST":
+        binId = request.form["binId"]
+        lon = request.form["lon"]
+        lat = request.form['lat']
+        level = request.form['level']
+        try:
+            db.session.add(Wastebin(binId=binId, lon=lon, lat=lat, level=level))
+            db.session.commit()
+            return 'wastebin data added succefully!'
+        except:
+            db.session.rollback()
+            return 'Unable to save wastebin data, please try again later'
+    else:
+        if request.args.get("who") == 'selim':
+            binId = request.args.get("binid")
+            lon = request.args.get("lon")
+            lat = request.args.get('lat')
+            level = request.args.get('level')
+            try:
+                db.session.add(Wastebin(binId=binId, lon=lon, lat=lat, level=level))
+                db.session.commit()
+                return 'wastebin data added succefully!'
+            except Exception as e:
+                db.session.rollback()
+                return e #'Unable to save wastebin data, please try again later'
+        return 'Method not allowed'
+@app.route("/waste-report", methods=["POST","GET"])
+def waste_report():
+    binInfo = Wastebin.query.order_by(Wastebin.id.desc()).all()
+    try:
+        binInfo = [
+            {'id':bin.id,'binId': bin.binId, 'lon': bin.lon, 'lat': bin.lat, 'level': bin.level, 'date': datetime.strptime(bin.date, "%Y-%m-%d %H:%M:%S.%f"), 'seenby': bin.seenby}
+            for bin in binInfo
+        ]
+    except:
+        binInfo = []
+    return render_template("notify.html", binInfo=binInfo)
+
+@app.route("/waste-map", methods=["POST","GET"])
+def waste_map():
+    id = request.args.get("id")
+    if id:
+        bin = Wastebin.query.get(int(id))
+        binInfo = [{'id':bin.id,'binId': bin.binId, 'lon': bin.lon, 'lat': bin.lat, 'level': bin.level,'date': datetime.strptime(bin.date, "%Y-%m-%d %H:%M:%S.%f").strftime("%a, %d %b %Y at %I:%M:%S%p")}]
+    else:
+        binInfo = Wastebin.query.all()#.order_by(Wastebin.id.desc()).all()
+        try:
+            binInfos = {}
+            for bin in binInfo:
+                binInfos[f'"{bin.binId}"'] = {'id':bin.id,'binId': bin.binId, 'lon': bin.lon, 'lat': bin.lat, 'level': bin.level,'date': datetime.strptime(bin.date, "%Y-%m-%d %H:%M:%S.%f").strftime("%a, %d %b %Y at %I:%M:%S%p")}
+                binInfo = list(binInfos.values())
+        except:
+            pass
+    return render_template("binmap.html", binInfo=binInfo)
+
+@app.route("/notify", methods=["POST","GET"])
+def waste_notify():
+    binInfo = None
+    if request.method == "POST":
+        if 'newNotify' in request.get_json():
+            data = request.get_json()
+            # binId = data["binId"]
+            userToken = data["userToken"]
+            binDate = data["binDate"]
+            getam = Wastebin.query.filter_by(date=binDate).first()#.to_dict()
+            sb = [] if len(eval(getam.seenby)) == 0 else eval(getam.seenby)
+            try:
+                if userToken not in sb:
+                    sb.append(userToken)
+                    getam.seenby = str(sb)
+                    db.session.commit()
+                    return {'status': True, 'data': 'added succefully!'}#getam.to_dict()}
+                return {'status': False, 'data': getam.to_dict(), 'send': data}
+            except Exception as e:
+                db.session.rollback()
+                return {'status': False, 'data': 'Something went wrong, please try again later! '+ str(e)}
+        if 'newBin' in request.get_json():
+            bins = Wastebin.query.all()
+            seenby = request.get_json()['seenby']
+            try:
+                newBins = [
+                    {'id':bin.id,'binId': bin.binId, 'lon': bin.lon, 'lat': bin.lat, 'level': bin.level, 'date': bin.date, 'seenby': bin.seenby}
+                    for bin in bins if seenby not in eval(bin.seenby)
+                ]
+                # content = [newBins[cnt] for cnt in range(len(newBins)) if cnt < 1 ]
+                return newBins
+            except Exception as e:
+                return {'status': False, 'data': str(e)}
+        return {'error': 'Invalid request'}, 400
+    return render_template("notify.html", binInfo=binInfo)
+
+# Route to serve the service worker from the root
+@app.route('/service-worker.js')
+def service_worker():
+    return send_from_directory('static', 'service-worker.js')
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "GET":
@@ -380,6 +582,30 @@ def start_scheduler_endpoint():
 @app.route('/api/stop_scheduler', methods=['GET'])
 def stop_scheduler_endpoint():
     return stop_scheduler()
+
+@app.route('/api/send-report', methods=['GET'])
+def send_email_report():
+    return start_scheduler()
+@app.route('/api/send-email', methods=['GET', 'POST'])
+def send_me_email():
+    try:
+        subject = request.args.get("subject")
+        body = request.args.get("body")
+        sender = 'osenikamorudeen36@gmail.com'
+        recipients = request.args.get('recipients')
+
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = recipients
+        smtp_server = smtplib.SMTP_SSL('smtp.gmail.com')
+        smtp_server.login(sender, "pwwgffcfjnvrrcon")
+        smtp_server.sendmail(sender, recipients, msg.as_string())
+        smtp_server.quit()
+        return {'msg': 'Email sent successfully!'}
+    except:
+        return {'error': 'Something went wrong!'}
+
 
 @app.route("/view/", methods=["GET", "POST"])
 def view():
@@ -410,11 +636,14 @@ def askquestion():
             flash('Incorrect details supllied', ('danger', 'warning'))
             return redirect(url_for('askquestion'))
         else:
-            rows = db.session.query(Transaction).filter(Transaction.ipaddress == request.headers['X-Real-IP'])
-            rows1 = db.session.query(Classification).filter(Classification.ipaddress == request.headers['X-Real-IP'])
-            # rows.update({Transaction.status: 0, Transaction.time:datetime.now()}, synchronize_session='fetch')
-            rows.delete(); rows1.delete()
-            db.session.commit()
+            try:
+                rows = db.session.query(Transaction).filter(Transaction.ipaddress == request.headers['X-Real-IP'])
+                rows1 = db.session.query(Classification).filter(Classification.ipaddress == request.headers['X-Real-IP'])
+                rows.update({Transaction.status: 0, Transaction.time:datetime.now()}, synchronize_session='fetch')
+                rows1.update({Classification.status: 0, Classification.time:datetime.now()}, synchronize_session='fetch')
+                # rows.delete(); rows1.delete()
+                db.session.commit()
+            except: pass
             flash('Your account is now activated successfully!', ('success', 'check'))
             return redirect(url_for('login'))
     return render_template("unblock_page.html", check_ip=check_ip, admin=admin, question=question)
@@ -445,40 +674,51 @@ def login():
         db.session.add(makelog)
         db.session.commit()
         # Create a new Classification entry
-        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay)
-        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay,
+        attack=0, defence=0, type=None)
+        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='', attack=0, defence=0, type=None)
         if setting.modeOfPlay==0:
-            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first(), str(modelClass()[1])
+            status, attack = str(modelClass()[1]), classifier.classify_attack(ipaddress)
+            try:
+                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+            except:
+                get_trans = None
             if not get_trans:
-                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay)
+                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay,
+                defence=status, attack=attack)
                 db.session.add(trans)
                 db.session.commit()
             else:
                 get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
-                Transaction.time:datetime.now()}, synchronize_session='fetch')
+                Transaction.time:datetime.now(), Transaction.defence:status, Transaction.attack:attack}, synchronize_session='fetch')
                 db.session.commit()
-            new_clfctn.status, new_clfctn.mode = status, setting.modeOfPlay
+            new_clfctn.status, new_clfctn.mode, new_clfctn.defence, new_clfctn.attack = status, setting.modeOfPlay, status, attack
             # Add the new classification entry to the database
             db.session.add(new_clfctn)
             db.session.commit()
         else:
             # Perform attack classification
-            attack_category = classifier.classify_attack(ipaddress)
-            if attack_category == 0:
+            attack_cat = str(classifier.classify_attack(ipaddress))
+            if attack_cat == '0':
                 classifier.successful_logins.add(ipaddress)
-            elif attack_category == 3:
+            elif attack_cat == '3':
                 pass
             else:
-                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                try:
+                    get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                except:
+                    get_trans = None
                 if not get_trans:
-                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=str(attack_category), mode=setting.modeOfPlay)
+                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=attack_cat, mode=setting.modeOfPlay,
+                    defence=attack_cat, attack=attack_cat)
                     db.session.add(trans)
                     db.session.commit()
                 else:
-                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: str(attack_category),
-                    Transaction.time:datetime.now()}, synchronize_session='fetch')
+                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: attack_cat,
+                    Transaction.time:datetime.now(), Transaction.defence:attack_cat, Transaction.attack:attack_cat}, synchronize_session='fetch')
                     db.session.commit()
-                new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
+                new_clfctn.mode = setting.modeOfPlay
+                new_clfctn.status = new_clfctn.defence = new_clfctn.attack = attack_cat
                 # Add the new classification entry to the database
                 db.session.add(new_clfctn); db.session.commit()
         # Add the new classification entry to the database
@@ -497,59 +737,79 @@ def api_login():
     ipaddress = request.args.get('ipaddress')
     status = request.args.get('status')
     setting = Setting.query.get(1); attack = classifier.classify_attack(ipaddress)
-    question1, question2 = Question.query.first().question, db.session.execute("select * from questions order by id desc").first().question
-    check_ip = check_new_ip(ipaddress)
+    attack = 0 if attack == 3 else attack
+    try:
+        question1, question2 = Question.query.first().question, db.session.execute("select * from questions order by id desc").first().question
+    except: pass
+    check_ip = 0 if check_new_ip(ipaddress)==False else check_new_ip(ipaddress)
+    if str(check_new_ip(ipaddress)) == '0':
+        defence_response = 'Released'
+    elif str(check_new_ip(ipaddress)) in '12':
+        defence_response = 'Blocked'
+    else:
+        defence_response = 'No Action'
     msg = {'status': str(attack), 'username': username, 'password': password, 'ipaddress': ipaddress,
-    'question1': '', 'question2': '', 'defence': str(check_ip), 'modeofplay': setting.modeOfPlay}
+    'question1': '', 'question2': '', 'defence': str(check_ip), 'modeofplay': setting.modeOfPlay, 'defence_response': defence_response}
     if str(check_ip) =='1' or str(check_ip) =='2':
         msg['question1'], msg['question2'] = question1, question2
         return msg
     classifier.timeInterval = setting.timeInterval
     classifier.noOfAttemptFailed = setting.noOfAttemptFailed
     makelog = Log(username=username, password=password, ipaddress=ipaddress, status=status)
-    if str(status)=='1':
+    vunerable = isInjection(password) or isInjection(username)
+    if str(status)=='0':
         db.session.add(makelog)
         db.session.commit()
         # Create a new Classification entry
-        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay)
-        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='')
+        new_clfctn = Classification(username=username, password=password, ipaddress=ipaddress, status=0, mode=setting.modeOfPlay, attack=0, defence=0, type=vunerable)
+        trans = Transaction(username=username, password=password, ipaddress=ipaddress, status='', mode='', attack=0, defence=0, type=vunerable)
         if setting.modeOfPlay==0:
-            get_trans, status = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first(), str(modelClass()[1])
+            status = str(modelClass()[1])
+            try:
+                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+            except:
+                get_trans = None
             if not get_trans:
-                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay)
+                trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=status, mode=setting.modeOfPlay,
+                defence=status, attack=attack)
                 db.session.add(trans)
                 db.session.commit()
             else:
-                get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: status,
-                Transaction.time:datetime.now()}, synchronize_session='fetch')
+                #UPDATED
+                get_trans.username=username; get_trans.password=password; get_trans.status=status
+                get_trans.time=datetime.now(); get_trans.defence=status; get_trans.attack=attack
                 db.session.commit()
-            new_clfctn.status, new_clfctn.mode = status, setting.modeOfPlay
+            new_clfctn.status, new_clfctn.mode, new_clfctn.defence, new_clfctn.attack = status, setting.modeOfPlay, status, attack
             # Add the new classification entry to the database
-            attack_category = classifier.classify_attack(ipaddress)
-            msg['status'], msg['defence'] = str(attack_category), str(status)
+            msg['status'], msg['defence'] = str(attack), str(status)
             db.session.add(new_clfctn)
             db.session.commit()
         else:
             # Perform attack classification
-            attack_category = classifier.classify_attack(ipaddress)
-            if attack_category == 0:
+            attack_cat = str(classifier.classify_attack(ipaddress))
+            if attack_cat == '0':
                 classifier.successful_logins.add(ipaddress)
-            elif attack_category == 3:
+            elif attack_cat == '3':
                 pass
             else:
-                get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                try:
+                    get_trans = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress).first()
+                except:
+                    get_trans = None
                 if not get_trans:
-                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=str(attack_category), mode=setting.modeOfPlay)
+                    trans = Transaction(username=username, password=password, ipaddress=ipaddress, status=attack_cat, mode=setting.modeOfPlay,
+                    defence=attack_cat, attack=attack_cat)
                     db.session.add(trans)
                     db.session.commit()
                 else:
-                    get_trans.update({Transaction.username:username, Transaction.password:password, Transaction.status: str(attack_category),
-                    Transaction.time:datetime.now()}, synchronize_session='fetch')
+                    get_trans.username=username; get_trans.password=password; get_trans.status=attack_cat
+                    get_trans.time=datetime.now()
                     db.session.commit()
-                new_clfctn.status, new_clfctn.mode = str(attack_category), setting.modeOfPlay
+                new_clfctn.mode = setting.modeOfPlay
+                new_clfctn.status = new_clfctn.defence = new_clfctn.attack = attack_cat
                 # Add the new classification entry to the database
                 db.session.add(new_clfctn); db.session.commit()
-                msg['status'], msg['defence'] = str(attack_category), str(attack_category)
+                msg['status'], msg['defence'] = str(attack), str(attack)
         # Add the new classification entry to the database
         db.session.add(new_clfctn); db.session.commit()
         return msg
@@ -557,6 +817,22 @@ def api_login():
     db.session.commit()
     return msg
 
+@app.route("/api/unlock", methods=['GET', 'POST'])
+def api_unlock():
+    msg=''
+    ipaddress = request.args.get('ipaddress')
+    status = '0' if request.args.get('status') == '1' else '2'
+    attack = Transaction.query.filter_by(ipaddress=ipaddress).all()
+    if not attack:
+        msg = ['An error occur!', 'error']
+    else:
+        rows = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
+        rows1 = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+        rows.update({Transaction.status: status, Transaction.time:datetime.now()}, synchronize_session='fetch')
+        rows1.update({Classification.status: status, Classification.time:datetime.now()}, synchronize_session='fetch')
+        db.session.commit()
+        msg = ['Attack log updated successfully!', 'success']
+    return msg
 @app.route("/signup/", methods=["GET", "POST"])
 def signup():
     msg = ''
@@ -603,11 +879,11 @@ def admin_():
         admin = session['admin']
         widget['setting'] = Setting.query.get(1)
         widget['attack'] = Transaction.query.all()
-        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0').all())
-        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.mode=='0').all())
-        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
-        Classification.mode=='0').all())
-        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all())
+        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3').all())
+        widget['attack_s_c'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence).all())
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence,
+        func.DATE(Classification.time) == date.today()).all())
+        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', func.DATE(Classification.time) == date.today()).all())
         widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
         widget['question'] = Question.query.all()
         widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]
@@ -719,7 +995,9 @@ def admin_settings():
                     msg = ['Attack log deleted successfully!', 'success']
                 else:
                     rows = db.session.query(Transaction).filter(Transaction.ipaddress == ipaddress)
-                    rows.update({Transaction.status: status, Transaction.time:datetime.now()}, synchronize_session='fetch')
+                    rows.update({Transaction.status: status}, synchronize_session='fetch')
+                    rows1 = db.session.query(Classification).filter(Classification.ipaddress == ipaddress)
+                    rows1.update({Classification.status: status}, synchronize_session='fetch')
                     db.session.commit()
                     msg = ['Attack log updated successfully!', 'success']
             return msg
@@ -754,24 +1032,28 @@ def admin_reports(title):
         admin = session['admin']
         widget['setting'] = Setting.query.get(1)
         widget['attack'] = Transaction.query.all()
-        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0').all())
-        widget['attack_s_c'] = len(Classification.query.filter(Classification.status=='0', Classification.mode=='0').all())
-        widget['today_s_c'] = len(Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
-        Classification.mode=='0').all())
-        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all())
+        widget['attack_count'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3').all())
+        widget['attack_s_c'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence).all())
+        widget['today_s_c'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence,
+        func.DATE(Classification.time) == date.today()).all())
+        widget['today_count'] = len(Classification.query.filter(Classification.status!='0', Classification.attack!='3', func.DATE(Classification.time) == date.today()).all())
         widget['log'], widget['log1'] = Log.query.all(), Classification.query.all()
         widget['question'] = Question.query.all()
         widget['bio_field'] = [bf for bf in User.__table__.c.keys() if bf not in ['id','username','password','date','status']]
 
         if title == "today-attack":
-            rows, title = Classification.query.filter(Classification.status!='0', func.DATE(Classification.time) == date.today()).all(), 'Today Attack'
+            rows, title = Classification.query.filter(Classification.status!='0', Classification.attack!='3', func.DATE(Classification.time) == date.today()).all(), 'Today Attack'
         elif title == "all-attack":
-            rows, title = Classification.query.filter(Classification.status!='0').all(), 'Total Attack'
+            rows, title = Classification.query.filter(Classification.status!='0', Classification.attack!='3').all(), 'All Attack'
         elif title == "today-success-attack":
-            rows, title = Classification.query.filter(Classification.status=='0', func.DATE(Classification.time) == date.today(),
-            Classification.mode=='0').all(), 'Today Successful Attack'
+            rows, title = Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence,
+            func.DATE(Classification.time) == date.today()).all(), 'Today Successful Attack'
         elif title == "all-success-attack":
-            rows, title = Classification.query.filter(Classification.status=='0', Classification.mode=='0').all(), 'Total Successful Attack'
+            title = 'All Successful Attack'
+            rows = Classification.query.filter(Classification.status!='0', Classification.attack!='3', Classification.attack>Classification.defence).all()
+        elif title == "all-unsuccessful-attack":
+            title = 'All Unsuccessful Attack'
+            rows = Classification.query.filter(Classification.status!='0', Classification.attack<=Classification.defence).all()
         elif title == "all-user":
             rows, title = User.query.all(), 'All registered user'
             widget['user'] = True

@@ -94,7 +94,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn" onclick="$('#cncLBtn').click()">Cancel</button>
+                <button class="btn red" onclick="$('#cncLBtn').click()">Cancel</button>
                 <button class="btn" onclick="$('#loginBtn').click()">Login</button>
                 <b class="text-center pull-left">&copy; <span id="copyYear"></span> Security Model</b>
             </div>
@@ -113,9 +113,9 @@
                 <table id="logs" class="display" style="width:100%">
                     <thead>
                     <tr>
-                        <th>S/N</th><th>username</th>
-                        <th>password</th><th>IPaddress</th>
-                        <th style="width:200px">time</th><th>status</th>
+                        <th>S/N</th><th>Username</th>
+                        <th>Password</th><th>IPaddress</th>
+                        <th style="width:200px">Login time</th><th>Login status</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -127,7 +127,7 @@
                             <td>{{ log.password }}</td>
                             <td>{{ log.ipaddress }}</td>
                             <td>{{ log.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
-                            <td>{{ log.status }}</td>
+                            <td>{% if log.status=='0' %} False {% else %} True {% endif %}</td>
                         </tr>
                     {% endfor %}
                     {% endif %}
@@ -135,7 +135,7 @@
                 </table>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary">OK
                 </button>
             </div>
@@ -153,9 +153,9 @@
                 <table id="log1" class="display" style="width:100%">
                     <thead>
                     <tr>
-                        <th>S/N</th><th>username</th><th>password</th>
-                        <th>IPaddress</th><th style="width:200px">time</th>
-                        <th>status</th><th>ModeOfPlay</th>
+                        <th>S/N</th><th>Username</th><th>Password</th>
+                        <th>IPaddress</th><th style="width:200px">Login Time</th>
+                        <th>Attack Classification</th><th class="hidden">ModeOfPlay</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -168,7 +168,7 @@
                             <td>{{ log.ipaddress }}</td>
                             <td>{{ log.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
                             <td>{{ log.status }}</td>
-                            <td>{% if log.mode == 0 %}Based on Model
+                            <td class="hidden">{% if log.mode == 0 %}Based on Model
                             {% else %}Based on Attack {% endif %}
                             </td>
                         </tr>
@@ -178,7 +178,7 @@
                 </table>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary">OK
                 </button>
             </div>
@@ -197,8 +197,8 @@
                     <thead>
                     <tr>
                         <th>S/N</th><th>Username</th>
-                        <th>Password</th><th>IPaddress</th>
-                        <th>Time</th><th>Status</th><th>ModeOfPlay</th>
+                        <th>Password</th><th>IPaddress</th><th>Time</th>
+                        <th>AttackLevel</th><th>DefenceLevel</th><th>ModeOfPlay</th>
                         <th>BlockStatus</th><th style="width:150px">Action</th>
                     </tr>
                     </thead>
@@ -211,27 +211,32 @@
                             <td>{{ attack.password }}</td>
                             <td>{{ attack.ipaddress }}</td>
                             <td>{{ attack.time.strftime("%a, %d %b %Y at %I:%M:%S%p") }}</td>
-                            <td>{{ attack.status }}</td>
+                            <td>{% if attack.attack == 3 %}0{% else %}{{ attack.attack }}{% endif %}</td>
+                            <td>{% if attack.defence==0 %} Normal {% else %} {{ attack.defence }} {% endif %}</td>
                             <td>{% if attack.mode == 0 %}Based on Model
                             {% else %}Based on Attack {% endif %}
                             </td>
                             <td>
-                                {% if attack.status == '1' or attack.status == '2' %}
-                                    <span class="label label-danger">Blocked</span>
+                                {% if attack.status == '1'%}
+                                    <span class="label label-warning">Low Blocked</span>
+                                {% elif attack.status == '2' %}
+                                    <span class="label label-danger">High Blocked</span>
+                                {% elif attack.status == '0' %}
+                                    <span class="label label-info">Released</span>
                                 {% else %}
                                     <span class="label label-success">Not Block</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if attack.status == '1' or attack.status == '2' %}
-                                    <span class="btn hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0');"
-                                    title="Unblock"><i class="fa fa-unlock"></i></span>
-                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','0','d'):'';"
+                                    <span class="btn" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','0');"
+                                    title="Unlock"><i class="fa fa-unlock"></i></span>
+                                    <span class="btn red hidden" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','0','d'):'';"
                                     title="Delete"><i class="fa fa-trash"></i></span>
                                 {% else %}
-                                    <span class="btn pink hidden" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2');"
-                                    title="Block"><i class="fa fa-lock"></i></span>
-                                    <span class="btn red" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','2','d'):'';"
+                                    <span class="btn pink" style="display:inline;padding: 10px 20px;" onclick="BorU('{{attack.ipaddress}}','2');"
+                                    title="Lock"><i class="fa fa-lock"></i></span>
+                                    <span class="btn red hidden" style="display:inline;padding: 10px 20px;" onclick="confirm('Are you sure you want to delete?')?BorU('{{attack.ipaddress}}','2','d'):'';"
                                     title="Delete"><i class="fa fa-trash"></i></span>
                                 {% endif %}
                             </td>
@@ -242,7 +247,7 @@
                 </table>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary">OK
                 </button>
             </div>
@@ -294,7 +299,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" onclick="changeSettings()">Submit
                 </button>
             </div>
@@ -337,7 +342,7 @@
                 </form>
             </div>
             <div class="modal-footer hidden">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
             </div>
         </div>
     </div>
@@ -370,7 +375,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" onclick="changeProfile()">Submit
                 </button>
             </div>
@@ -406,7 +411,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                <button class="btn red" data-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" onclick="changePass()">Submit
                 </button>
             </div>
@@ -523,10 +528,26 @@
             </div>
         </li>
         <li>
-            <a href="#" data-toggle="modal" data-backdrop="static" data-target="#reportModal">
+            <a data-toggle="collapse" href="#report" class="dropdown collapsed">
                 <span class="menu-title">Report</span>
                 <i class="fa fa-list menu-icon"></i>
             </a>
+            <div class="collapse" id="report">
+                <ul class="nav sub-menu">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/report/all-attack">All attacks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/report/all-unsuccessful-attack">All unsuccessful attacks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/report/all-success-attack">All successful attack</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-toggle="modal" data-backdrop="static" data-target="#reportModal">Defence report</a>
+                    </li>
+                </ul>
+            </div>
         </li>
         <li>
             <a href="/admin/report/all-user"><span class="menu-title">Users</span><i class="fa fa-user menu-icon"></i></a>
